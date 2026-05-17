@@ -1,0 +1,84 @@
+---
+import BaseLayout from '~/layouts/BaseLayout.astro';
+import { db, schema } from '~/db';
+import { eq } from 'drizzle-orm';
+import { RULES, canReport } from '~/lib/moderation';
+import { renderBody } from '~/lib/text';
+
+const user = Astro.locals.user;
+if (!user) return Astro.redirect('/login');
+if (!canReport(user)) return Astro.redirect('/cuenta/sancionada?reportes=1');
+
+const postIdStr = Astro.params.postId;
+const postId = postIdStr ? parseInt(postIdStr, 10) : NaN;
+if (!Number.isFinite(postId)) return new Response('No encontrado', { status: 404 });
+
+const [post] = await db.select({
+  id: schema.posts.id,
+  body: schema.posts.body,
+  threadId: schema.posts.threadId,
+  authorUsername: schema.users.username,
+  threadTitle: schema.threads.title,
+})
+  .from(schema.posts)
+  .innerJoin(schema.users, eq(schema.users.id, schema.posts.authorId))
+  .innerJoin(schema.threads, eq(schema.threads.id, schema.posts.threadId))
+  .where(eq(schema.posts.id, postId))
+  .limit(1);
+
+if (!post) return new Response('Post no encontrado', { status: 404 });
+if (post.authorUsername === user.username) {
+  return Astro.redirect(`/h/${post.threadId}`);
+}
+
+const error = Astro.url.searchParams.get('error');
+---
+<BaseLayout title="reportar post">
+  <div class="max-w-2xl mx-auto px-6 py-10">
+    <p class="kicker mb-1">// moderación</p>
+    <h1 class="text-3xl mb-2 prompt">reportar post</h1>
+    <p class="text-sm mb-6" style="color: var(--color-muted)">
+      el reporte va a un jurado humano que va a leer el post y tu contexto. reportes mal fundamentados pueden hacer que pierdas el derecho a reportar por 30 días.
+    </p>
+
+    <div class="card p-4 mb-6">
+      <div class="text-xs mb-2" style="color: var(--color-muted)">
+        en <a href={`/h/${post.threadId}`} style="color: var(--color-accent)">{post.threadTitle}</a>
+        · por @{post.authorUsername}
+      </div>
+      <div class="prose-body text-sm" set:html={renderBody(post.body)} />
+    </div>
+
+    {error === 'short' && <div class="alert alert-error mb-4">el contexto debe tener al menos 20 caracteres.</div>}
+
+    <form method="post" action="/api/reports" class="space-y-5">
+      <input type="hidden" name="postId" value={post.id} />
+
+      <fieldset>
+        <legend class="kicker mb-2">// regla violada</legend>
+        <div class="space-y-2">
+          {RULES.map((r) => (
+            <label class="flex items-start gap-3 cursor-pointer">
+              <input type="radio" name="ruleNumber" value={r.n} required style="width:auto; box-shadow:none" />
+              <span>
+                <strong>{r.n}. {r.label}</strong>
+                <span class="text-xs ml-2" style="color: var(--color-muted)">({r.short})</span>
+              </span>
+            </label>
+          ))}
+        </div>
+      </fieldset>
+
+      <label class="block">
+        <span class="kicker block mb-1">contexto (qué exactamente viola la regla y por qué)</span>
+        <textarea name="context" required rows="4" minlength="20" maxlength="1000"
+          placeholder="ej: el post llama 'imbécil' a otro usuario en lugar de responder al argumento."></textarea>
+      </label>
+
+      <div class="flex justify-between items-center">
+        <a href={`/h/${post.threadId}`} class="text-sm" style="color: var(--color-muted)">← cancelar</a>
+        <button type="submit" class="btn">enviar reporte</button>
+      </div>
+    </form>
+  </div>
+</BaseLayout>

@@ -1,0 +1,32 @@
+---
+import BaseLayout from '~/layouts/BaseLayout.astro';
+import { db, schema } from '~/db';
+import { eq, sql } from 'drizzle-orm';
+
+const countries = await db.select({
+  id: schema.countries.id,
+  slug: schema.countries.slug,
+  name: schema.countries.name,
+  threadCount: sql<number>`count(${schema.threads.id})::int`,
+})
+  .from(schema.countries)
+  .leftJoin(schema.threads, eq(schema.threads.countryId, schema.countries.id))
+  .groupBy(schema.countries.id)
+  .orderBy(schema.countries.sortOrder, schema.countries.name);
+---
+<BaseLayout title="paises">
+  <div class="max-w-5xl mx-auto px-6 py-10">
+    <p class="kicker mb-1">// índice</p>
+    <h1 class="text-3xl mb-6 prompt">países y regiones</h1>
+    <ul class="grid md:grid-cols-3 gap-x-6 gap-y-3">
+      {countries.map((c) => (
+        <li>
+          <a href={`/pais/${c.slug}`} class="font-semibold">
+            <span style="color: var(--color-accent)">$</span> {c.name.toLowerCase()}
+          </a>
+          <span class="text-xs ml-1" style="color: var(--color-muted)">({c.threadCount})</span>
+        </li>
+      ))}
+    </ul>
+  </div>
+</BaseLayout>

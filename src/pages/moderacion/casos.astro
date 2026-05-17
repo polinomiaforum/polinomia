@@ -1,0 +1,61 @@
+---
+import BaseLayout from '~/layouts/BaseLayout.astro';
+import { db, schema } from '~/db';
+import { desc, eq, alias } from 'drizzle-orm';
+import { relativeTime } from '~/lib/text';
+
+if (!Astro.locals.isAdmin) return new Response('No autorizado', { status: 403 });
+
+const reporter = alias(schema.users, 'reporter');
+const reported = alias(schema.users, 'reported');
+
+const pending = await db.select({
+  id: schema.reports.id,
+  ruleNumber: schema.reports.ruleNumber,
+  context: schema.reports.context,
+  createdAt: schema.reports.createdAt,
+  postId: schema.reports.postId,
+  threadId: schema.reports.threadId,
+  threadTitle: schema.threads.title,
+  reporterUsername: reporter.username,
+  reportedUsername: reported.username,
+})
+  .from(schema.reports)
+  .innerJoin(schema.threads, eq(schema.threads.id, schema.reports.threadId))
+  .innerJoin(reporter, eq(reporter.id, schema.reports.reporterId))
+  .innerJoin(reported, eq(reported.id, schema.reports.reportedUserId))
+  .where(eq(schema.reports.status, 'pending'))
+  .orderBy(desc(schema.reports.createdAt));
+---
+<BaseLayout title="casos pendientes">
+  <div class="max-w-4xl mx-auto px-6 py-10">
+    <p class="kicker mb-1">// admin · moderación</p>
+    <h1 class="text-3xl mb-2 prompt">casos pendientes</h1>
+    <p class="text-sm mb-6" style="color: var(--color-muted)">
+      modo fundador: vos sos el jurado. cada decisión queda en la <a href="/moderacion" style="color: var(--color-accent)">bitácora pública</a> anonimizada.
+    </p>
+
+    {pending.length === 0 ? (
+      <p style="color: var(--color-muted)">no hay reportes pendientes.</p>
+    ) : (
+      <ul class="space-y-4">
+        {pending.map((r) => (
+          <li class="card p-4">
+            <div class="flex flex-wrap items-center gap-2 mb-2 text-xs" style="color: var(--color-muted)">
+              <span class="tag tag-accent">regla {r.ruleNumber}</span>
+              <span>· {relativeTime(r.createdAt)}</span>
+              <span>· en <a href={`/h/${r.threadId}`} style="color: var(--color-accent)">{r.threadTitle}</a></span>
+            </div>
+            <p class="text-sm">
+              <strong>@{r.reporterUsername}</strong> reportó a <strong>@{r.reportedUsername}</strong>
+            </p>
+            <p class="text-sm mt-2 prose-body">{r.context}</p>
+            <div class="mt-3">
+              <a href={`/moderacion/caso/${r.id}`} class="btn">→ revisar caso</a>
+            </div>
+          </li>
+        ))}
+      </ul>
+    )}
+  </div>
+</BaseLayout>

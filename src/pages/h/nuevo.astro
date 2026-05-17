@@ -1,0 +1,71 @@
+---
+import BaseLayout from '~/layouts/BaseLayout.astro';
+import { db, schema } from '~/db';
+
+if (!Astro.locals.user) {
+  return Astro.redirect('/login?next=/h/nuevo');
+}
+
+const topics = await db.select().from(schema.topics).orderBy(schema.topics.sortOrder, schema.topics.name);
+const countries = await db.select().from(schema.countries).orderBy(schema.countries.sortOrder, schema.countries.name);
+
+const error = Astro.url.searchParams.get('error');
+const presetTopic = Astro.url.searchParams.get('tema');
+const presetCountry = Astro.url.searchParams.get('pais');
+---
+<BaseLayout title="abrir un hilo">
+  <div class="max-w-2xl mx-auto px-6 py-10">
+    <p class="kicker mb-1">// nuevo hilo</p>
+    <h1 class="text-3xl mb-2 prompt">abrir un hilo</h1>
+    <p class="text-sm mb-6" style="color: var(--color-muted)">
+      planteá una tesis o pregunta concreta. cuanto más afilada, mejor el debate. si tenés fuentes que respalden tu posición, agregalas abajo.
+    </p>
+    {error && <div class="alert alert-error mb-4">faltan campos requeridos.</div>}
+    <form method="post" action="/api/threads" class="space-y-5">
+      <div class="grid grid-cols-2 gap-4">
+        <label class="block">
+          <span class="kicker block mb-1">tema</span>
+          <select name="topicSlug" required>
+            <option value="">— elegí un tema —</option>
+            {topics.map((t) => <option value={t.slug} selected={t.slug === presetTopic}>{t.name}</option>)}
+          </select>
+        </label>
+        <label class="block">
+          <span class="kicker block mb-1">país / región</span>
+          <select name="countrySlug" required>
+            <option value="">— elegí un país —</option>
+            {countries.map((c) => <option value={c.slug} selected={c.slug === presetCountry}>{c.name}</option>)}
+          </select>
+        </label>
+      </div>
+
+      <label class="block">
+        <span class="kicker block mb-1">tesis o pregunta</span>
+        <input type="text" name="title" required maxlength="200" placeholder="ej: ¿el control de cambios reduce la inflación?" />
+      </label>
+
+      <label class="block">
+        <span class="kicker block mb-1">tu apertura</span>
+        <textarea name="body" required rows="10" minlength="40" placeholder="desarrollá tu posición. definí términos, contextualizá, planteá supuestos."></textarea>
+      </label>
+
+      <fieldset class="border rule p-4">
+        <legend class="kicker px-2">// fuentes (hasta 5)</legend>
+        <p class="text-xs mb-3" style="color: var(--color-muted)">
+          papers, libros, datos. cita primero, link si existe.
+        </p>
+        {[0, 1, 2, 3, 4].map((i) => (
+          <div class="grid grid-cols-3 gap-2 mb-2">
+            <input type="text" name={`source_citation_${i}`} placeholder="cita (autor, año, título...)" class="col-span-2" maxlength="300" />
+            <input type="url" name={`source_url_${i}`} placeholder="url (opcional)" />
+          </div>
+        ))}
+      </fieldset>
+
+      <div class="flex justify-between items-center">
+        <a href="/" class="text-sm" style="color: var(--color-muted)">← cancelar</a>
+        <button type="submit" class="btn">publicar hilo</button>
+      </div>
+    </form>
+  </div>
+</BaseLayout>

@@ -1,0 +1,79 @@
+---
+import BaseLayout from '~/layouts/BaseLayout.astro';
+import { db, schema } from '~/db';
+import { and, desc, eq } from 'drizzle-orm';
+import { relativeTime } from '~/lib/text';
+
+const { slug } = Astro.params;
+if (!slug) return Astro.redirect('/paises');
+
+const [country] = await db.select().from(schema.countries).where(eq(schema.countries.slug, slug)).limit(1);
+if (!country) return new Response('País no encontrado', { status: 404 });
+
+const topicFilter = Astro.url.searchParams.get('tema');
+
+const threads = await db.select({
+  id: schema.threads.id,
+  title: schema.threads.title,
+  lastActivityAt: schema.threads.lastActivityAt,
+  topicSlug: schema.topics.slug,
+  topicName: schema.topics.name,
+  authorUsername: schema.users.username,
+})
+  .from(schema.threads)
+  .innerJoin(schema.topics, eq(schema.topics.id, schema.threads.topicId))
+  .innerJoin(schema.users, eq(schema.users.id, schema.threads.authorId))
+  .where(and(
+    eq(schema.threads.countryId, country.id),
+    topicFilter ? eq(schema.topics.slug, topicFilter) : undefined,
+  ))
+  .orderBy(desc(schema.threads.lastActivityAt));
+
+const topics = await db.selectDistinct({
+  slug: schema.topics.slug,
+  name: schema.topics.name,
+})
+  .from(schema.threads)
+  .innerJoin(schema.topics, eq(schema.topics.id, schema.threads.topicId))
+  .where(eq(schema.threads.countryId, country.id))
+  .orderBy(schema.topics.name);
+---
+<BaseLayout title={country.name}>
+  <div class="max-w-5xl mx-auto px-6 py-10">
+    <nav class="text-xs mb-2" style="color: var(--color-muted)">
+      <a href="/paises">~/paises</a> / {country.slug}
+    </nav>
+    <h1 class="text-3xl mb-6 prompt">{country.name.toLowerCase()}</h1>
+
+    {topics.length > 0 && (
+      <div class="text-xs mb-6 pb-3 border-b rule-soft flex flex-wrap items-center gap-2">
+        <span style="color: var(--color-muted)">// filtrar:</span>
+        <a href={`/pais/${country.slug}`} class:list={['tag', !topicFilter && 'tag-accent']}>todos</a>
+        {topics.map((t) => (
+          <a href={`/pais/${country.slug}?tema=${t.slug}`} class:list={['tag', topicFilter === t.slug && 'tag-accent']}>{t.name.toLowerCase()}</a>
+        ))}
+      </div>
+    )}
+
+    {threads.length === 0 ? (
+      <p style="color: var(--color-muted)">todavía no hay hilos en {country.name.toLowerCase()}. <a href="/h/nuevo" style="color: var(--color-accent)">abrí el primero →</a></p>
+    ) : (
+      <ul>
+        {threads.map((t, i) => (
+          <li class:list={['py-4', i > 0 && 'border-t rule-soft']}>
+            <a href={`/h/${t.id}`} class="thread-title text-lg block">
+              <span style="color: var(--color-accent)">&gt;</span> {t.title}
+            </a>
+            <div class="text-xs mt-1 flex flex-wrap gap-x-2 gap-y-1" style="color: var(--color-muted)">
+              <a href={`/tema/${t.topicSlug}`} class="tag">{t.topicName.toLowerCase()}</a>
+              <span>·</span>
+              <span>por <a href={`/u/${t.authorUsername}`} style="color: var(--color-ink)">@{t.authorUsername}</a></span>
+              <span>·</span>
+              <span>{relativeTime(t.lastActivityAt)}</span>
+            </div>
+          </li>
+        ))}
+      </ul>
+    )}
+  </div>
+</BaseLayout>

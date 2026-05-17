@@ -1,0 +1,102 @@
+---
+import BaseLayout from '~/layouts/BaseLayout.astro';
+if (Astro.locals.user) return Astro.redirect('/');
+const error = Astro.url.searchParams.get('error');
+const errors: Record<string, string> = {
+  email_invalid: 'email inválido.',
+  magic_invalid: 'el link es inválido.',
+  magic_expired: 'el link expiró o ya fue usado. pedí uno nuevo.',
+  google_denied: 'cancelaste el ingreso con google.',
+  google_state: 'la sesión de google expiró. probá de nuevo.',
+  google_email: 'google no confirmó tu email. usá otra cuenta.',
+  google_failed: 'algo falló contra google. probá de nuevo.',
+  google_config: 'google oauth todavía no está configurado.',
+  passkey_failed: 'la passkey no se pudo verificar.',
+};
+---
+<BaseLayout title="entrar">
+  <div class="max-w-md mx-auto px-6 py-12">
+    <p class="kicker mb-1">// auth</p>
+    <h1 class="text-3xl mb-6 prompt">entrar</h1>
+
+    {error && <div class="alert alert-error mb-4">{errors[error] ?? 'hubo un error.'}</div>}
+    <div id="passkey-error" class="alert alert-error mb-4" style="display:none"></div>
+
+    <form method="post" action="/api/auth/magic/request" class="space-y-3 mb-5">
+      <label class="block">
+        <span class="kicker block mb-1">email</span>
+        <input type="email" name="email" required placeholder="vos@ejemplo.com" />
+      </label>
+      <button type="submit" class="btn w-full">→ mandame un link de acceso</button>
+    </form>
+
+    <div class="flex items-center gap-3 my-4 text-xs" style="color: var(--color-muted)">
+      <span class="flex-1 divider-ascii">─────────────────</span>
+      <span>o</span>
+      <span class="flex-1 divider-ascii">─────────────────</span>
+    </div>
+
+    <a href="/api/auth/google/start" class="btn-google mb-3" role="button">
+      <svg width="16" height="16" viewBox="0 0 48 48" aria-hidden="true">
+        <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3c-1.6 4.6-6 8-11.3 8-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.8 1.1 7.9 3l5.7-5.7C34.5 6.1 29.5 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/>
+        <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 16 19 13 24 13c3 0 5.8 1.1 7.9 3l5.7-5.7C34.5 6.1 29.5 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/>
+        <path fill="#4CAF50" d="M24 44c5.4 0 10.3-2 14-5.4l-6.5-5.3C29.4 35 26.9 36 24 36c-5.3 0-9.7-3.4-11.3-8L6 32.6C9.3 39.5 16.1 44 24 44z"/>
+        <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.3 4.3-4.2 5.7l6.5 5.3C41.8 35.8 44 30.3 44 24c0-1.3-.1-2.4-.4-3.5z"/>
+      </svg>
+      continuar con google
+    </a>
+
+    <button type="button" id="passkey-login" class="btn-google" style="margin-top: 0.5rem;">
+      <span aria-hidden="true">⌘</span>
+      entrar con passkey
+    </button>
+
+    <p class="mt-8 text-xs" style="color: var(--color-muted)">
+      polinomics no usa contraseñas. te mandamos un link al mail (vence en 15 min) o usás google / passkey.
+    </p>
+  </div>
+
+  <script>
+    import { startAuthentication, browserSupportsWebAuthn } from '@simplewebauthn/browser';
+
+    const btn = document.getElementById('passkey-login');
+    const errBox = document.getElementById('passkey-error');
+
+    function showErr(msg: string) {
+      if (!errBox) return;
+      errBox.textContent = msg;
+      errBox.style.display = 'block';
+    }
+
+    if (btn) {
+      if (!browserSupportsWebAuthn()) {
+        btn.setAttribute('disabled', 'true');
+        btn.style.opacity = '0.5';
+        btn.title = 'tu navegador no soporta passkeys';
+      }
+      btn.addEventListener('click', async () => {
+        try {
+          const optsRes = await fetch('/api/auth/passkey/login/start', { method: 'POST' });
+          if (!optsRes.ok) throw new Error('no se pudo iniciar');
+          const options = await optsRes.json();
+          const response = await startAuthentication({ optionsJSON: options });
+          const verifyRes = await fetch('/api/auth/passkey/login/finish', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ response }),
+          });
+          if (!verifyRes.ok) {
+            const data = await verifyRes.json().catch(() => ({}));
+            throw new Error(data.error ?? 'no se pudo verificar');
+          }
+          const data = await verifyRes.json();
+          window.location.href = data.redirect ?? '/';
+        } catch (err: any) {
+          if (err?.name === 'NotAllowedError') return;
+          console.error(err);
+          showErr('no se pudo entrar con passkey: ' + (err?.message ?? 'error desconocido'));
+        }
+      });
+    }
+  </script>
+</BaseLayout>

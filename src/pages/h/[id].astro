@@ -1,0 +1,213 @@
+---
+import BaseLayout from '~/layouts/BaseLayout.astro';
+import { db, schema } from '~/db';
+import { asc, eq } from 'drizzle-orm';
+import { relativeTime, renderBody } from '~/lib/text';
+
+const idStr = Astro.params.id;
+const id = idStr ? parseInt(idStr, 10) : NaN;
+if (!Number.isFinite(id)) return new Response('No encontrado', { status: 404 });
+
+const [thread] = await db.select({
+  id: schema.threads.id,
+  title: schema.threads.title,
+  createdAt: schema.threads.createdAt,
+  topicSlug: schema.topics.slug,
+  topicName: schema.topics.name,
+  countrySlug: schema.countries.slug,
+  countryName: schema.countries.name,
+})
+  .from(schema.threads)
+  .innerJoin(schema.topics, eq(schema.topics.id, schema.threads.topicId))
+  .innerJoin(schema.countries, eq(schema.countries.id, schema.threads.countryId))
+  .where(eq(schema.threads.id, id))
+  .limit(1);
+
+if (!thread) return new Response('Hilo no encontrado', { status: 404 });
+
+const posts = await db.select({
+  id: schema.posts.id,
+  body: schema.posts.body,
+  isOpening: schema.posts.isOpening,
+  createdAt: schema.posts.createdAt,
+  editedAt: schema.posts.editedAt,
+  hiddenAt: schema.posts.hiddenAt,
+  hiddenReason: schema.posts.hiddenReason,
+  needsReformulation: schema.posts.needsReformulation,
+  reformulateDueAt: schema.posts.reformulateDueAt,
+  authorId: schema.users.id,
+  authorUsername: schema.users.username,
+  authorDeclaredView: schema.users.declaredView,
+})
+  .from(schema.posts)
+  .innerJoin(schema.users, eq(schema.users.id, schema.posts.authorId))
+  .where(eq(schema.posts.threadId, id))
+  .orderBy(asc(schema.posts.createdAt));
+
+const allSources = await db.select()
+  .from(schema.sources)
+  .where(eq(schema.sources.threadId, id))
+  .orderBy(asc(schema.sources.createdAt));
+
+const sourcesByPost = new Map<number, typeof allSources>();
+for (const s of allSources) {
+  if (!sourcesByPost.has(s.postId)) sourcesByPost.set(s.postId, []);
+  sourcesByPost.get(s.postId)!.push(s);
+}
+
+const user = Astro.locals.user;
+const isAdmin = !!Astro.locals.isAdmin;
+const canReport = !!Astro.locals.canReport;
+const isSuspended = !!Astro.locals.suspended;
+const hasPendingReformulation = (Astro.locals.awaitingReformulation?.length ?? 0) > 0;
+const error = Astro.url.searchParams.get('error');
+const reportedFlag = Astro.url.searchParams.get('reportado') === '1';
+---
+<BaseLayout title={thread.title}>
+  <div class="max-w-5xl mx-auto px-6 py-8">
+    <nav class="text-xs mb-2 flex flex-wrap gap-2" style="color: var(--color-muted)">
+      <a href={`/tema/${thread.topicSlug}`} class="tag">{thread.topicName.toLowerCase()}</a>
+      <a href={`/pais/${thread.countrySlug}`} class="tag">{thread.countryName.toLowerCase()}</a>
+    </nav>
+    <h1 class="thread-title text-2xl md:text-3xl mb-6">
+      <span style="color: var(--color-accent)">&gt;</span> {thread.title}
+    </h1>
+
+    {reportedFlag && <div class="alert alert-ok mb-4">reporte enviado. lo revisa la moderación.</div>}
+    {error === 'self_report' && <div class="alert alert-error mb-4">no podés reportar tu propio post.</div>}
+    {error === 'expired_edit' && <div class="alert alert-error mb-4">la edición libre vence después de 1 hora.</div>}
+
+    <div class="grid md:grid-cols-[1fr_280px] gap-10">
+      <div>
+        {posts.map((p) => {
+          const ps = sourcesByPost.get(p.id) ?? [];
+          const isOwn = user?.id === p.authorId;
+          const hidden = !!p.hiddenAt;
+          const showHiddenPlaceholder = hidden && !isOwn && !isAdmin;
+          const withinEdit1h = (Date.now() - p.createdAt.getTime()) < 3600_000;
+          return (
+            <article id={`p${p.id}`} class:list={['py-6 border-t rule-soft', p.isOpening && 'border-l-2 pl-4']} style={p.isOpening ? 'border-left-color: var(--color-accent)' : ''}>
+              <header class="text-xs mb-3 flex flex-wrap items-center gap-2" style="color: var(--color-muted)">
+                <a href={`/u/${p.authorUsername}`} class="font-semibold" style="color: var(--color-ink)">@{p.authorUsername}</a>
+                {p.authorDeclaredView && <span>· {p.authorDeclaredView}</span>}
+                <span>· {relativeTime(p.createdAt)}</span>
+                {p.editedAt && <span>· editado {relativeTime(p.editedAt)}</span>}
+                {p.isOpening ? <span class="tag tag-accent">apertura</span> : null}
+                {hidden && <span class="tag tag-accent">oculto · {p.hiddenReason}</span>}
+                {p.needsReformulation === 1 && <span class="tag tag-accent">a reformular</span>}
+              </header>
+
+              {showHiddenPlaceholder ? (
+                <p class="text-sm italic" style="color: var(--color-muted)">
+                  post ocultado por moderación ({p.hiddenReason}). la decisión está en la
+                  <a href="/moderacion" style="color: var(--color-accent)"> bitácora pública</a>.
+                </p>
+              ) : (
+                <>
+                  {isOwn && p.needsReformulation === 1 && (
+                    <div class="alert mb-3">
+                      la moderación te pidió reformular este post.
+                      {p.reformulateDueAt && <> tenés hasta <strong>{p.reformulateDueAt.toLocaleString('es')}</strong>.</>}
+                      <a href={`/h/editar/${p.id}`} style="color: var(--color-accent)" class="ml-2">→ editar ahora</a>
+                    </div>
+                  )}
+                  <div class="prose-body" set:html={renderBody(p.body)} />
+                  {ps.length > 0 && (
+                    <div class="mt-4 pl-3 border-l rule text-sm">
+                      <div class="kicker mb-1">// fuentes citadas</div>
+                      <ol class="list-decimal ml-5 space-y-1">
+                        {ps.map((s) => (
+                          <li>
+                            {s.url ? (
+                              <a href={s.url} target="_blank" rel="noopener nofollow ugc" style="color: var(--color-accent)">{s.citation}</a>
+                            ) : s.citation}
+                          </li>
+                        ))}
+                      </ol>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {user && (
+                <div class="mt-3 flex flex-wrap gap-3 text-xs" style="color: var(--color-muted)">
+                  {isOwn && withinEdit1h && p.needsReformulation === 0 && (
+                    <a href={`/h/editar/${p.id}`} style="color: var(--color-muted)">[editar]</a>
+                  )}
+                  {!isOwn && canReport && (
+                    <a href={`/h/reportar/${p.id}`} style="color: var(--color-muted)">[reportar]</a>
+                  )}
+                </div>
+              )}
+            </article>
+          );
+        })}
+
+        <section class="mt-8">
+          <h2 class="kicker mb-3">// responder</h2>
+          {!user ? (
+            <p class="text-sm" style="color: var(--color-muted)">
+              <a href={`/login?next=/h/${thread.id}`} style="color: var(--color-accent)">entrá</a> o
+              <a href="/registro" style="color: var(--color-accent)"> registrate</a> para participar.
+            </p>
+          ) : isSuspended ? (
+            <div class="alert alert-error">
+              no podés responder: tu cuenta está suspendida.
+              <a href="/cuenta/sancionada" style="color: var(--color-accent)" class="ml-2">→ ver estado</a>
+            </div>
+          ) : hasPendingReformulation ? (
+            <div class="alert">
+              tenés posts pendientes de reformular. no podés escribir nuevos hasta editarlos.
+              <a href="/cuenta/sancionada" style="color: var(--color-accent)" class="ml-2">→ ver</a>
+            </div>
+          ) : (
+            <>
+              {error === 'short' && <div class="alert alert-error mb-3">tu respuesta debe tener al menos 30 caracteres.</div>}
+              <form method="post" action="/api/posts" class="space-y-4">
+                <input type="hidden" name="threadId" value={thread.id} />
+                <textarea name="body" required rows="6" minlength="30" placeholder="argumentá. definí. citá."></textarea>
+                <fieldset class="border rule p-3">
+                  <legend class="kicker px-2">// fuentes (hasta 5)</legend>
+                  {[0, 1, 2, 3, 4].map((i) => (
+                    <div class="grid grid-cols-3 gap-2 mb-2">
+                      <input type="text" name={`source_citation_${i}`} placeholder="cita" class="col-span-2" maxlength="300" />
+                      <input type="url" name={`source_url_${i}`} placeholder="url (opcional)" />
+                    </div>
+                  ))}
+                </fieldset>
+                <div class="flex justify-end">
+                  <button type="submit" class="btn">publicar respuesta</button>
+                </div>
+              </form>
+            </>
+          )}
+        </section>
+      </div>
+
+      <aside class="md:border-l rule md:pl-6">
+        <h2 class="kicker mb-3">// biblioteca del hilo</h2>
+        {allSources.length === 0 ? (
+          <p class="text-xs" style="color: var(--color-muted)">todavía no se citó ninguna fuente.</p>
+        ) : (
+          <ol class="text-xs space-y-3 list-decimal ml-5">
+            {allSources.map((s) => (
+              <li>
+                {s.url ? (
+                  <a href={s.url} target="_blank" rel="noopener nofollow ugc" style="color: var(--color-accent)">{s.citation}</a>
+                ) : s.citation}
+                <div class="mt-0.5">
+                  <a href={`#p${s.postId}`} style="color: var(--color-muted)">→ contexto</a>
+                </div>
+              </li>
+            ))}
+          </ol>
+        )}
+
+        <h2 class="kicker mt-8 mb-3">// moderación</h2>
+        <p class="text-xs" style="color: var(--color-muted)">
+          este foro se modera con jurado humano. <a href="/moderacion" style="color: var(--color-accent)">ver bitácora</a>.
+        </p>
+      </aside>
+    </div>
+  </div>
+</BaseLayout>

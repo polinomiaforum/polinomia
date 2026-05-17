@@ -1,0 +1,54 @@
+---
+const user = Astro.locals.user;
+const isAdmin = !!Astro.locals.isAdmin;
+const path = Astro.url.pathname;
+const navItem = (href: string, label: string, active: boolean) =>
+  ({ href, label, active });
+const items = [
+  navItem('/', 'temas', path === '/'),
+  navItem('/paises', 'paises', path.startsWith('/paises') || path.startsWith('/pais/')),
+  navItem('/reglas', 'reglas', path === '/reglas'),
+  navItem('/moderacion', 'moderacion', path.startsWith('/moderacion')),
+];
+---
+<header class="border-b rule" style="background: var(--color-paper)">
+  <div class="max-w-5xl mx-auto px-6 pt-5 pb-3 flex items-end justify-between gap-6 flex-wrap">
+    <a href="/" class="flex items-baseline gap-3">
+      <span class="text-2xl font-bold tracking-tight">
+        <span style="color: var(--color-accent)">[</span>polinomics<span style="color: var(--color-accent)">]</span>
+      </span>
+      <span class="kicker hidden sm:inline">foro · política · economía</span>
+    </a>
+    <nav class="flex items-center gap-2 text-sm flex-wrap">
+      {items.map((it) => (
+        <a
+          href={it.href}
+          class:list={['tag', it.active && 'tag-accent']}
+        >{it.label}</a>
+      ))}
+      <button type="button" data-theme-toggle aria-label="cambiar tema" class="theme-toggle">
+        <span class="theme-dark-label">[~dark]</span>
+        <span class="theme-light-label">[~light]</span>
+      </button>
+      <span class="mx-2 text-[var(--color-soft)] select-none">│</span>
+      {user ? (
+        <>
+          {isAdmin && <a href="/moderacion/casos" class="tag tag-accent">[admin]</a>}
+          <a href="/h/nuevo" class="btn">+ hilo</a>
+          <a href={`/u/${user.username}`} class="tag">@{user.username}</a>
+          <form method="post" action="/api/logout" style="display:inline">
+            <button type="submit" class="btn btn-ghost">salir</button>
+          </form>
+        </>
+      ) : (
+        <>
+          <a href="/login" class="tag">entrar</a>
+          <a href="/registro" class="btn">registrarse</a>
+        </>
+      )}
+    </nav>
+  </div>
+  <div class="max-w-5xl mx-auto px-6 pb-1 divider-ascii" aria-hidden="true">
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+  </div>
+</header>

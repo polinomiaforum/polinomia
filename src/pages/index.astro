@@ -1,0 +1,101 @@
+---
+import BaseLayout from '~/layouts/BaseLayout.astro';
+import { db, schema } from '~/db';
+import { desc, eq, sql } from 'drizzle-orm';
+import { relativeTime } from '~/lib/text';
+
+const topics = await db.select({
+  id: schema.topics.id,
+  slug: schema.topics.slug,
+  name: schema.topics.name,
+  description: schema.topics.description,
+  threadCount: sql<number>`count(${schema.threads.id})::int`,
+})
+  .from(schema.topics)
+  .leftJoin(schema.threads, eq(schema.threads.topicId, schema.topics.id))
+  .groupBy(schema.topics.id)
+  .orderBy(schema.topics.sortOrder, schema.topics.name);
+
+const recent = await db.select({
+  id: schema.threads.id,
+  title: schema.threads.title,
+  lastActivityAt: schema.threads.lastActivityAt,
+  topicSlug: schema.topics.slug,
+  topicName: schema.topics.name,
+  countrySlug: schema.countries.slug,
+  countryName: schema.countries.name,
+  authorUsername: schema.users.username,
+})
+  .from(schema.threads)
+  .innerJoin(schema.topics, eq(schema.topics.id, schema.threads.topicId))
+  .innerJoin(schema.countries, eq(schema.countries.id, schema.threads.countryId))
+  .innerJoin(schema.users, eq(schema.users.id, schema.threads.authorId))
+  .orderBy(desc(schema.threads.lastActivityAt))
+  .limit(15);
+---
+<BaseLayout>
+  <div class="max-w-5xl mx-auto px-6 py-10">
+    <section class="mb-10">
+      <p class="kicker mb-2">~ /home/foro &mdash; sesión iniciada</p>
+      <h1 class="text-3xl md:text-4xl mb-4 leading-tight">
+        <span class="prompt">discutí política y economía.</span><br>
+        <span style="color: var(--color-accent)">con</span> argumentos. <span style="color: var(--color-accent)">con</span> fuentes.
+      </h1>
+      <p class="text-sm max-w-2xl" style="color: var(--color-muted)">
+        polinomics es un foro chico y exigente. acá no hay votos, no hay rankings, no hay algoritmo:
+        solo hilos, respuestas, y las fuentes que cada uno trae. las agresiones personales no se toleran.
+      </p>
+    </section>
+
+    <div class="grid md:grid-cols-3 gap-10">
+      <section class="md:col-span-2">
+        <h2 class="kicker mb-3 flex items-center gap-2">
+          <span>// hilos recientes</span>
+          <span class="flex-1 divider-ascii">─────────────────────────────────────────</span>
+        </h2>
+        {recent.length === 0 ? (
+          <p style="color: var(--color-muted)">todavía no hay hilos. <a href="/h/nuevo" style="color: var(--color-accent)">abrí el primero →</a></p>
+        ) : (
+          <ul>
+            {recent.map((t, i) => (
+              <li class:list={['py-4', i > 0 && 'border-t rule-soft']}>
+                <a href={`/h/${t.id}`} class="thread-title text-lg block">
+                  <span style="color: var(--color-accent)">&gt;</span> {t.title}
+                </a>
+                <div class="text-xs mt-1 flex flex-wrap gap-x-2 gap-y-1" style="color: var(--color-muted)">
+                  <a href={`/tema/${t.topicSlug}`} class="tag">{t.topicName.toLowerCase()}</a>
+                  <a href={`/pais/${t.countrySlug}`} class="tag">{t.countryName.toLowerCase()}</a>
+                  <span>·</span>
+                  <span>por <a href={`/u/${t.authorUsername}`} style="color: var(--color-ink)">@{t.authorUsername}</a></span>
+                  <span>·</span>
+                  <span>{relativeTime(t.lastActivityAt)}</span>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <aside>
+        <h2 class="kicker mb-3 flex items-center gap-2">
+          <span>// temas</span>
+          <span class="flex-1 divider-ascii">───────────</span>
+        </h2>
+        <ul class="space-y-3">
+          {topics.map((t) => (
+            <li>
+              <a href={`/tema/${t.slug}`} class="font-semibold">
+                <span style="color: var(--color-accent)">$</span> {t.name.toLowerCase()}
+                <span class="text-xs ml-1" style="color: var(--color-muted)">({t.threadCount})</span>
+              </a>
+              {t.description && <p class="text-xs mt-0.5" style="color: var(--color-muted)">{t.description}</p>}
+            </li>
+          ))}
+        </ul>
+        <p class="mt-6 text-sm">
+          <a href="/paises" style="color: var(--color-accent)">→ ver por país</a>
+        </p>
+      </aside>
+    </div>
+  </div>
+</BaseLayout>

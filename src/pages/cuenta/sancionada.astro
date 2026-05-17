@@ -1,0 +1,80 @@
+---
+import BaseLayout from '~/layouts/BaseLayout.astro';
+import { db, schema } from '~/db';
+import { and, desc, eq, gte } from 'drizzle-orm';
+
+const user = Astro.locals.user;
+if (!user) return Astro.redirect('/login');
+
+const awaiting = Astro.locals.awaitingReformulation ?? [];
+const suspendedUntil = user.suspendedUntil;
+const expelled = !!user.expelledAt;
+
+const latestSanctions = await db.select()
+  .from(schema.sanctions)
+  .where(and(
+    eq(schema.sanctions.userId, user.id),
+    gte(schema.sanctions.appliedAt, new Date(Date.now() - 180 * 86400_000)),
+  ))
+  .orderBy(desc(schema.sanctions.appliedAt))
+  .limit(10);
+---
+<BaseLayout title="cuenta sancionada">
+  <div class="max-w-2xl mx-auto px-6 py-10">
+    <p class="kicker mb-1">// estado de cuenta</p>
+    <h1 class="text-3xl mb-4 prompt">tu cuenta tiene restricciones</h1>
+
+    {expelled && (
+      <div class="alert alert-error mb-4">
+        tu cuenta fue expulsada. no podés volver a participar. si creés que es un error,
+        escribí a <a href="mailto:moderacion@polinomics.local" style="color: var(--color-accent)">moderacion@polinomics.local</a>.
+      </div>
+    )}
+
+    {!expelled && suspendedUntil && suspendedUntil.getTime() > Date.now() && (
+      <div class="alert alert-error mb-4">
+        cuenta suspendida hasta {suspendedUntil.toLocaleString('es')}.
+        durante la suspensión no podés abrir hilos ni responder.
+      </div>
+    )}
+
+    {awaiting.length > 0 && (
+      <div class="alert mb-4">
+        <p class="font-semibold mb-2">tenés posts pendientes de reformular:</p>
+        <ul class="list-disc ml-5 space-y-1">
+          {awaiting.map((p) => (
+            <li>
+              <a href={`/h/editar/${p.id}`} style="color: var(--color-accent)">→ editar post #{p.id}</a>
+              {p.dueAt && <span class="text-xs ml-2" style="color: var(--color-muted)">(vence {p.dueAt.toLocaleString('es')})</span>}
+            </li>
+          ))}
+        </ul>
+        <p class="text-sm mt-2" style="color: var(--color-muted)">
+          mientras no los reformules, no podés escribir nuevos posts.
+        </p>
+      </div>
+    )}
+
+    <h2 class="kicker mt-8 mb-3">// historial reciente</h2>
+    {latestSanctions.length === 0 ? (
+      <p class="text-sm" style="color: var(--color-muted)">no hay sanciones recientes.</p>
+    ) : (
+      <ul class="text-sm space-y-2">
+        {latestSanctions.map((s) => (
+          <li class="border rule p-2">
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="tag tag-accent">{s.type}</span>
+              {s.ruleNumber && <span class="tag">regla {s.ruleNumber}</span>}
+              <span class="text-xs" style="color: var(--color-muted)">{s.appliedAt.toLocaleString('es')}</span>
+            </div>
+            <p class="mt-1 text-xs">{s.reason}</p>
+          </li>
+        ))}
+      </ul>
+    )}
+
+    <p class="mt-8 text-sm">
+      <a href="/reglas" style="color: var(--color-accent)">→ ver código de conducta</a>
+    </p>
+  </div>
+</BaseLayout>

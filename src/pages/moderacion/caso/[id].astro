@@ -1,0 +1,139 @@
+---
+import BaseLayout from '~/layouts/BaseLayout.astro';
+import { db, schema } from '~/db';
+import { alias, desc, eq, and, gte } from 'drizzle-orm';
+import { DECISIONS, RULES } from '~/lib/moderation';
+import { relativeTime, renderBody } from '~/lib/text';
+
+if (!Astro.locals.isAdmin) return new Response('No autorizado', { status: 403 });
+
+const idStr = Astro.params.id;
+const id = idStr ? parseInt(idStr, 10) : NaN;
+if (!Number.isFinite(id)) return new Response('No encontrado', { status: 404 });
+
+const reporter = alias(schema.users, 'reporter');
+const reported = alias(schema.users, 'reported');
+
+const [report] = await db.select({
+  id: schema.reports.id,
+  status: schema.reports.status,
+  ruleNumber: schema.reports.ruleNumber,
+  context: schema.reports.context,
+  createdAt: schema.reports.createdAt,
+  postId: schema.reports.postId,
+  threadId: schema.reports.threadId,
+  threadTitle: schema.threads.title,
+  postBody: schema.posts.body,
+  postCreatedAt: schema.posts.createdAt,
+  postHiddenAt: schema.posts.hiddenAt,
+  reporterId: reporter.id,
+  reporterUsername: reporter.username,
+  reportedId: reported.id,
+  reportedUsername: reported.username,
+})
+  .from(schema.reports)
+  .innerJoin(schema.threads, eq(schema.threads.id, schema.reports.threadId))
+  .innerJoin(schema.posts, eq(schema.posts.id, schema.reports.postId))
+  .innerJoin(reporter, eq(reporter.id, schema.reports.reporterId))
+  .innerJoin(reported, eq(reported.id, schema.reports.reportedUserId))
+  .where(eq(schema.reports.id, id))
+  .limit(1);
+
+if (!report) return new Response('Caso no encontrado', { status: 404 });
+
+const since90 = new Date(Date.now() - 90 * 86400_000);
+const priorSanctions = await db.select()
+  .from(schema.sanctions)
+  .where(and(
+    eq(schema.sanctions.userId, report.reportedId),
+    gte(schema.sanctions.appliedAt, since90),
+  ))
+  .orderBy(desc(schema.sanctions.appliedAt));
+
+const error = Astro.url.searchParams.get('error');
+const ruleLabel = RULES.find((r) => r.n === report.ruleNumber)?.label;
+---
+<BaseLayout title={`caso #${report.id}`}>
+  <div class="max-w-3xl mx-auto px-6 py-10">
+    <p class="kicker mb-1">// admin · caso #{report.id}</p>
+    <div class="flex flex-wrap items-center gap-2 mb-4">
+      <span class="tag tag-accent">regla {report.ruleNumber}</span>
+      <span class="tag">{report.status}</span>
+      <span class="text-xs" style="color: var(--color-muted)">abierto {relativeTime(report.createdAt)}</span>
+    </div>
+
+    <h1 class="text-xl mb-4">{ruleLabel}</h1>
+
+    <h2 class="kicker mb-2">// post reportado</h2>
+    <div class="card p-4 mb-4">
+      <div class="text-xs mb-2" style="color: var(--color-muted)">
+        @{report.reportedUsername} en <a href={`/h/${report.threadId}#p${report.postId}`} style="color: var(--color-accent)">{report.threadTitle}</a>
+        · {relativeTime(report.postCreatedAt)}
+        {report.postHiddenAt && <span class="ml-2" style="color: var(--color-accent)">(ya oculto)</span>}
+      </div>
+      <div class="prose-body text-sm" set:html={renderBody(report.postBody)} />
+    </div>
+
+    <h2 class="kicker mb-2">// contexto del reporte</h2>
+    <div class="card p-4 mb-4">
+      <p class="text-xs mb-1" style="color: var(--color-muted)">por @{report.reporterUsername}</p>
+      <p class="prose-body text-sm">{report.context}</p>
+    </div>
+
+    <h2 class="kicker mb-2">// expediente del reportado (últimos 90 días)</h2>
+    {priorSanctions.length === 0 ? (
+      <p class="text-xs mb-6" style="color: var(--color-muted)">sin sanciones previas. primer caso.</p>
+    ) : (
+      <ul class="text-xs space-y-1 mb-6">
+        {priorSanctions.map((s) => (
+          <li>
+            <span class="tag tag-accent">{s.type}</span>
+            {s.ruleNumber && <span class="tag">regla {s.ruleNumber}</span>}
+            <span style="color: var(--color-muted)"> · {relativeTime(s.appliedAt)} · {s.reason}</span>
+          </li>
+        ))}
+      </ul>
+    )}
+
+    {report.status === 'pending' ? (
+      <>
+        <h2 class="kicker mb-2">// veredicto</h2>
+        {error && <div class="alert alert-error mb-4">faltan campos: elegí una decisión y escribí una línea de justificación.</div>}
+        <form method="post" action="/api/moderacion/decide" class="space-y-4">
+          <input type="hidden" name="reportId" value={report.id} />
+          <input type="hidden" name="ruleNumber" value={report.ruleNumber} />
+
+          <fieldset>
+            <legend class="kicker mb-2">// decisión</legend>
+            <div class="space-y-2">
+              {DECISIONS.map((d) => (
+                <label class="flex items-start gap-3 cursor-pointer">
+                  <input type="radio" name="decision" value={d.id} required style="width:auto; box-shadow:none" />
+                  <span>
+                    <strong>{d.label}</strong>
+                    <span class="text-xs ml-2" style="color: var(--color-muted)">— {d.desc}</span>
+                  </span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+
+          <label class="block">
+            <span class="kicker block mb-1">justificación (una línea, va a la bitácora pública)</span>
+            <input type="text" name="rationale" required minlength="10" maxlength="400"
+              placeholder="ej: el post llama 'imbécil' al usuario, sin discutir su argumento." />
+          </label>
+
+          <div class="flex justify-end">
+            <button type="submit" class="btn">aplicar veredicto</button>
+          </div>
+        </form>
+      </>
+    ) : (
+      <div class="alert mb-4">
+        este caso ya fue resuelto. veredicto: <strong>{report.status}</strong>.
+        <a href="/moderacion" class="ml-2" style="color: var(--color-accent)">→ ver bitácora</a>
+      </div>
+    )}
+  </div>
+</BaseLayout>

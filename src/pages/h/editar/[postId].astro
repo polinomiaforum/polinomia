@@ -1,0 +1,52 @@
+---
+import BaseLayout from '~/layouts/BaseLayout.astro';
+import { db, schema } from '~/db';
+import { eq } from 'drizzle-orm';
+
+const user = Astro.locals.user;
+if (!user) return Astro.redirect('/login');
+
+const postIdStr = Astro.params.postId;
+const postId = postIdStr ? parseInt(postIdStr, 10) : NaN;
+if (!Number.isFinite(postId)) return new Response('No encontrado', { status: 404 });
+
+const [post] = await db.select().from(schema.posts).where(eq(schema.posts.id, postId)).limit(1);
+if (!post) return new Response('Post no encontrado', { status: 404 });
+if (post.authorId !== user.id) return new Response('No autorizado', { status: 403 });
+
+const mustReformulate = post.needsReformulation === 1;
+const within1h = (Date.now() - post.createdAt.getTime()) < 3600_000;
+if (!mustReformulate && !within1h) {
+  return Astro.redirect(`/h/${post.threadId}?error=expired_edit`);
+}
+
+const error = Astro.url.searchParams.get('error');
+---
+<BaseLayout title="editar post">
+  <div class="max-w-2xl mx-auto px-6 py-10">
+    <p class="kicker mb-1">// editar</p>
+    <h1 class="text-3xl mb-2 prompt">{mustReformulate ? 'reformular post' : 'editar post'}</h1>
+
+    {mustReformulate && (
+      <div class="alert mb-4">
+        este post fue marcado por la moderación para ser reformulado.
+        {post.reformulateDueAt && <> tenés hasta <strong>{post.reformulateDueAt.toLocaleString('es')}</strong> para editarlo.</>}
+        al guardar, el post deja de estar oculto.
+      </div>
+    )}
+
+    {error === 'short' && <div class="alert alert-error mb-4">el contenido debe tener al menos 30 caracteres.</div>}
+
+    <form method="post" action="/api/posts/edit" class="space-y-4">
+      <input type="hidden" name="postId" value={post.id} />
+      <label class="block">
+        <span class="kicker block mb-1">contenido</span>
+        <textarea name="body" required rows="10" minlength="30">{post.body}</textarea>
+      </label>
+      <div class="flex justify-between items-center">
+        <a href={`/h/${post.threadId}`} class="text-sm" style="color: var(--color-muted)">← cancelar</a>
+        <button type="submit" class="btn">guardar</button>
+      </div>
+    </form>
+  </div>
+</BaseLayout>

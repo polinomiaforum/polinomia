@@ -1,0 +1,205 @@
+---
+import BaseLayout from '~/layouts/BaseLayout.astro';
+import { db, schema } from '~/db';
+import { desc, eq, sql } from 'drizzle-orm';
+import { relativeTime } from '~/lib/text';
+
+const { username } = Astro.params;
+if (!username) return new Response('No encontrado', { status: 404 });
+
+const [user] = await db.select({
+  id: schema.users.id,
+  username: schema.users.username,
+  bio: schema.users.bio,
+  declaredView: schema.users.declaredView,
+  avatarUrl: schema.users.avatarUrl,
+  createdAt: schema.users.createdAt,
+})
+  .from(schema.users)
+  .where(eq(schema.users.username, username))
+  .limit(1);
+
+if (!user) return new Response('Usuario no encontrado', { status: 404 });
+
+const threads = await db.select({
+  id: schema.threads.id,
+  title: schema.threads.title,
+  lastActivityAt: schema.threads.lastActivityAt,
+  topicSlug: schema.topics.slug,
+  topicName: schema.topics.name,
+  countrySlug: schema.countries.slug,
+  countryName: schema.countries.name,
+})
+  .from(schema.threads)
+  .innerJoin(schema.topics, eq(schema.topics.id, schema.threads.topicId))
+  .innerJoin(schema.countries, eq(schema.countries.id, schema.threads.countryId))
+  .where(eq(schema.threads.authorId, user.id))
+  .orderBy(desc(schema.threads.lastActivityAt));
+
+const [{ count: postCount }] = await db.select({
+  count: sql<number>`count(*)::int`,
+})
+  .from(schema.posts)
+  .where(eq(schema.posts.authorId, user.id));
+
+const [{ count: sourceCount }] = await db.select({
+  count: sql<number>`count(*)::int`,
+})
+  .from(schema.sources)
+  .innerJoin(schema.posts, eq(schema.posts.id, schema.sources.postId))
+  .where(eq(schema.posts.authorId, user.id));
+
+const isMe = Astro.locals.user?.id === user.id;
+const updated = Astro.url.searchParams.get('saved') === '1';
+const passkeyMsg = Astro.url.searchParams.get('passkey');
+
+const userPasskeys = isMe
+  ? await db.select().from(schema.passkeys).where(eq(schema.passkeys.userId, user.id)).orderBy(desc(schema.passkeys.createdAt))
+  : [];
+---
+<BaseLayout title={`@${user.username}`}>
+  <div class="max-w-3xl mx-auto px-6 py-10">
+    <p class="kicker mb-1">// perfil</p>
+    <div class="flex items-center gap-4 mb-2">
+      {user.avatarUrl && (
+        <img src={user.avatarUrl} alt="" width="48" height="48" class="border rule" style="image-rendering: auto" />
+      )}
+      <h1 class="text-3xl prompt">@{user.username}</h1>
+    </div>
+    {user.declaredView && <p class="text-sm mb-2" style="color: var(--color-muted)">{user.declaredView}</p>}
+    <p class="text-xs" style="color: var(--color-muted)">
+      // miembro desde {user.createdAt.toLocaleDateString('es', { month: 'long', year: 'numeric' })}
+      &middot; {threads.length} hilos &middot; {postCount} respuestas &middot; {sourceCount} fuentes citadas
+    </p>
+    {user.bio && <p class="mt-4 prose-body">{user.bio}</p>}
+
+    {isMe && (
+      <>
+        <details class="mt-6 card p-4">
+          <summary class="cursor-pointer text-sm font-semibold">editar mi perfil</summary>
+          {updated && <div class="alert alert-ok my-3">perfil actualizado.</div>}
+          <form method="post" action="/api/profile" class="space-y-3 mt-3">
+            <label class="block">
+              <span class="kicker block mb-1">postura declarada (opcional)</span>
+              <input type="text" name="declaredView" value={user.declaredView ?? ''} placeholder="ej: economista, escuela austríaca" maxlength="100" />
+            </label>
+            <label class="block">
+              <span class="kicker block mb-1">bio (opcional)</span>
+              <textarea name="bio" rows="3" maxlength="500">{user.bio ?? ''}</textarea>
+            </label>
+            <button type="submit" class="btn">guardar</button>
+          </form>
+        </details>
+
+        <details class="mt-4 card p-4">
+          <summary class="cursor-pointer text-sm font-semibold">mis passkeys ({userPasskeys.length})</summary>
+          <p class="text-xs mt-2 mb-3" style="color: var(--color-muted)">
+            las passkeys te dejan entrar con face id / touch id / yubikey, sin contraseña y sin esperar el mail. registrá una en cada dispositivo que uses seguido.
+          </p>
+
+          {passkeyMsg === 'added' && <div class="alert alert-ok mb-3">passkey agregada.</div>}
+          {passkeyMsg === 'removed' && <div class="alert alert-ok mb-3">passkey eliminada.</div>}
+          <div id="passkey-msg" class="alert alert-error mb-3" style="display:none"></div>
+
+          {userPasskeys.length === 0 ? (
+            <p class="text-xs mb-3" style="color: var(--color-muted)">no tenés passkeys registradas.</p>
+          ) : (
+            <ul class="text-sm space-y-2 mb-3">
+              {userPasskeys.map((pk) => (
+                <li class="flex items-center justify-between gap-3 border rule p-2">
+                  <div>
+                    <strong>{pk.deviceName ?? 'passkey'}</strong>
+                    <div class="text-xs" style="color: var(--color-muted)">
+                      // agregada {relativeTime(pk.createdAt)}
+                      {pk.lastUsedAt && <> · usada {relativeTime(pk.lastUsedAt)}</>}
+                    </div>
+                  </div>
+                  <form method="post" action="/api/auth/passkey/delete">
+                    <input type="hidden" name="passkeyId" value={pk.id} />
+                    <button type="submit" class="btn btn-ghost text-xs">borrar</button>
+                  </form>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          <div class="flex items-end gap-2">
+            <label class="flex-1">
+              <span class="kicker block mb-1">nombre del dispositivo</span>
+              <input type="text" id="passkey-name" placeholder="ej: mi iphone" maxlength="60" />
+            </label>
+            <button type="button" id="passkey-add" class="btn">+ agregar passkey</button>
+          </div>
+        </details>
+
+        <script>
+          import { startRegistration, browserSupportsWebAuthn } from '@simplewebauthn/browser';
+
+          const btn = document.getElementById('passkey-add');
+          const input = document.getElementById('passkey-name') as HTMLInputElement | null;
+          const msg = document.getElementById('passkey-msg');
+
+          function show(text: string, ok = false) {
+            if (!msg) return;
+            msg.textContent = text;
+            msg.className = ok ? 'alert alert-ok mb-3' : 'alert alert-error mb-3';
+            msg.style.display = 'block';
+          }
+
+          if (btn) {
+            if (!browserSupportsWebAuthn()) {
+              btn.setAttribute('disabled', 'true');
+              btn.style.opacity = '0.5';
+              btn.title = 'tu navegador no soporta passkeys';
+            }
+            btn.addEventListener('click', async () => {
+              try {
+                const optsRes = await fetch('/api/auth/passkey/register/start', { method: 'POST' });
+                if (!optsRes.ok) throw new Error('no se pudo iniciar');
+                const options = await optsRes.json();
+                const response = await startRegistration({ optionsJSON: options });
+                const finishRes = await fetch('/api/auth/passkey/register/finish', {
+                  method: 'POST',
+                  headers: { 'content-type': 'application/json' },
+                  body: JSON.stringify({ response, deviceName: input?.value ?? null }),
+                });
+                if (!finishRes.ok) {
+                  const data = await finishRes.json().catch(() => ({}));
+                  throw new Error(data.error ?? 'no se pudo guardar');
+                }
+                window.location.href = window.location.pathname + '?passkey=added';
+              } catch (err: any) {
+                if (err?.name === 'NotAllowedError') return;
+                console.error(err);
+                show('error: ' + (err?.message ?? 'desconocido'));
+              }
+            });
+          }
+        </script>
+      </>
+    )}
+
+    <h2 class="kicker mt-10 mb-3 flex items-center gap-2">
+      <span>// hilos abiertos</span>
+      <span class="flex-1 divider-ascii">─────────────────────────────────</span>
+    </h2>
+    {threads.length === 0 ? (
+      <p style="color: var(--color-muted)">todavía no abrió hilos.</p>
+    ) : (
+      <ul>
+        {threads.map((t, i) => (
+          <li class:list={['py-3', i > 0 && 'border-t rule-soft']}>
+            <a href={`/h/${t.id}`} class="thread-title text-base block">
+              <span style="color: var(--color-accent)">&gt;</span> {t.title}
+            </a>
+            <div class="text-xs flex flex-wrap gap-x-2 gap-y-1 mt-1" style="color: var(--color-muted)">
+              <a href={`/tema/${t.topicSlug}`} class="tag">{t.topicName.toLowerCase()}</a>
+              <a href={`/pais/${t.countrySlug}`} class="tag">{t.countryName.toLowerCase()}</a>
+              <span>· {relativeTime(t.lastActivityAt)}</span>
+            </div>
+          </li>
+        ))}
+      </ul>
+    )}
+  </div>
+</BaseLayout>
