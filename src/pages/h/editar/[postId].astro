@@ -22,31 +22,33 @@ if (!mustReformulate && !within1h) {
 
 const error = Astro.url.searchParams.get('error');
 ---
-<BaseLayout title="editar post">
-  <div class="max-w-2xl mx-auto px-6 py-10">
-    <p class="kicker mb-1">// editar</p>
-    <h1 class="text-3xl mb-2 prompt">{mustReformulate ? 'reformular post' : 'editar post'}</h1>
+<BaseLayout title="Editar post">
+  <article class="thread page-anim">
+    <div class="thread__kicker">
+      <span class="kicker">Editar</span>
+    </div>
+    <h1 class="thread__title">{mustReformulate ? 'Reformular post' : 'Editar post'}</h1>
 
     {mustReformulate && (
-      <div class="alert mb-4">
-        este post fue marcado por la moderación para ser reformulado.
-        {post.reformulateDueAt && <> tenés hasta <strong>{post.reformulateDueAt.toLocaleString('es')}</strong> para editarlo.</>}
-        al guardar, el post deja de estar oculto.
+      <div class="alert">
+        Este post fue marcado por la moderación para ser reformulado.
+        {post.reformulateDueAt && <> Tenés hasta <b>{post.reformulateDueAt.toLocaleString('es')}</b> para editarlo.</>}
+        Al guardar, el post deja de estar oculto.
       </div>
     )}
 
-    {error === 'short' && <div class="alert alert-error mb-4">el contenido debe tener al menos 30 caracteres.</div>}
+    {error === 'short' && <div class="alert alert-error">El contenido debe tener al menos 30 caracteres.</div>}
 
-    <form method="post" action="/api/posts/edit" class="space-y-4">
+    <form method="post" action="/api/posts/edit" style="display: flex; flex-direction: column; gap: 16px; margin-top: 24px;">
       <input type="hidden" name="postId" value={post.id} />
-      <label class="block">
-        <span class="kicker block mb-1">contenido</span>
-        <textarea name="body" required rows="10" minlength="30">{post.body}</textarea>
+      <label>
+        <span class="kicker kicker--muted" style="display: block; margin-bottom: 6px;">Contenido</span>
+        <textarea name="body" required rows="12" minlength="30" style="min-height: 240px;">{post.body}</textarea>
       </label>
-      <div class="flex justify-between items-center">
-        <a href={`/h/${post.threadId}`} class="text-sm" style="color: var(--color-muted)">← cancelar</a>
-        <button type="submit" class="btn">guardar</button>
+      <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 12px; border-top: 1px solid var(--rule);">
+        <a href={`/h/${post.threadId}`} class="meta" style="color: var(--ink-2);">← Cancelar</a>
+        <button type="submit" class="btn">Guardar</button>
       </div>
     </form>
-  </div>
+  </article>
 </BaseLayout>

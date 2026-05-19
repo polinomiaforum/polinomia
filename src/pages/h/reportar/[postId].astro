@@ -33,52 +33,53 @@ if (post.authorUsername === user.username) {
 
 const error = Astro.url.searchParams.get('error');
 ---
-<BaseLayout title="reportar post">
-  <div class="max-w-2xl mx-auto px-6 py-10">
-    <p class="kicker mb-1">// moderación</p>
-    <h1 class="text-3xl mb-2 prompt">reportar post</h1>
-    <p class="text-sm mb-6" style="color: var(--color-muted)">
-      el reporte va a un jurado humano que va a leer el post y tu contexto. reportes mal fundamentados pueden hacer que pierdas el derecho a reportar por 30 días.
+<BaseLayout title="Reportar post">
+  <article class="thread page-anim">
+    <div class="thread__kicker">
+      <span class="kicker">Moderación</span>
+    </div>
+    <h1 class="thread__title">Reportar post</h1>
+    <p style="font-family: var(--font-serif); font-size: 20px; line-height: 1.5; color: var(--ink-2); margin: 0 0 28px; max-width: 60ch;">
+      El reporte va a un jurado humano que va a leer el post y tu contexto. Reportes mal fundamentados pueden hacer que pierdas el derecho a reportar por 30 días.
     </p>
 
-    <div class="card p-4 mb-6">
-      <div class="text-xs mb-2" style="color: var(--color-muted)">
-        en <a href={`/h/${post.threadId}`} style="color: var(--color-accent)">{post.threadTitle}</a>
-        · por @{post.authorUsername}
+    <div class="card" style="margin-bottom: 24px;">
+      <div class="meta" style="margin-bottom: 8px;">
+        En <a href={`/h/${post.threadId}`} style="color: var(--accent);">{post.threadTitle}</a> · por @{post.authorUsername}
       </div>
-      <div class="prose-body text-sm" set:html={renderBody(post.body)} />
+      <div class="body-text" style="font-size: 16px;" set:html={renderBody(post.body)} />
     </div>
 
-    {error === 'short' && <div class="alert alert-error mb-4">el contexto debe tener al menos 20 caracteres.</div>}
+    {error === 'short' && <div class="alert alert-error">El contexto debe tener al menos 20 caracteres.</div>}
 
-    <form method="post" action="/api/reports" class="space-y-5">
+    <form method="post" action="/api/reports" style="display: flex; flex-direction: column; gap: 20px;">
       <input type="hidden" name="postId" value={post.id} />
 
-      <fieldset>
-        <legend class="kicker mb-2">// regla violada</legend>
-        <div class="space-y-2">
+      <fieldset style="border: 0; padding: 0; margin: 0;">
+        <legend class="kicker kicker--muted" style="margin-bottom: 12px;">Regla violada</legend>
+        <div style="display: flex; flex-direction: column; gap: 10px;">
           {RULES.map((r) => (
-            <label class="flex items-start gap-3 cursor-pointer">
-              <input type="radio" name="ruleNumber" value={r.n} required style="width:auto; box-shadow:none" />
+            <label style="display: flex; align-items: flex-start; gap: 12px; font-family: var(--font-serif); font-size: 17px; cursor: pointer;">
+              <input type="radio" name="ruleNumber" value={r.n} required style="width: auto; margin-top: 6px;" />
               <span>
-                <strong>{r.n}. {r.label}</strong>
-                <span class="text-xs ml-2" style="color: var(--color-muted)">({r.short})</span>
+                <b>{r.n}. {r.label}</b>
+                <span class="meta" style="margin-left: 8px;">({r.short})</span>
               </span>
             </label>
           ))}
         </div>
       </fieldset>
 
-      <label class="block">
-        <span class="kicker block mb-1">contexto (qué exactamente viola la regla y por qué)</span>
+      <label>
+        <span class="kicker kicker--muted" style="display: block; margin-bottom: 6px;">Contexto (qué exactamente viola la regla y por qué)</span>
         <textarea name="context" required rows="4" minlength="20" maxlength="1000"
-          placeholder="ej: el post llama 'imbécil' a otro usuario en lugar de responder al argumento."></textarea>
+          placeholder="Ej: el post llama 'imbécil' a otro usuario en lugar de responder al argumento."></textarea>
       </label>
 
-      <div class="flex justify-between items-center">
-        <a href={`/h/${post.threadId}`} class="text-sm" style="color: var(--color-muted)">← cancelar</a>
-        <button type="submit" class="btn">enviar reporte</button>
+      <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 12px; border-top: 1px solid var(--rule);">
+        <a href={`/h/${post.threadId}`} class="meta" style="color: var(--ink-2);">← Cancelar</a>
+        <button type="submit" class="btn">Enviar reporte</button>
       </div>
     </form>
-  </div>
+  </article>
 </BaseLayout>

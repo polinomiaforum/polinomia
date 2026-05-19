@@ -1,36 +1,43 @@
 ---
 import BaseLayout from '~/layouts/BaseLayout.astro';
 ---
-<BaseLayout title="código de conducta">
-  <div class="max-w-2xl mx-auto px-6 py-10 prose-body">
-    <p class="kicker mb-1">// docs</p>
-    <h1 class="text-3xl mb-2 prompt">código de conducta</h1>
-    <p style="color: var(--color-muted)">polinomia existe porque la mayoría de los espacios para discutir política y economía no funcionan. acá probamos otra cosa.</p>
-
-    <h2 class="text-xl mt-8 mb-2"><span style="color: var(--color-accent)">##</span> las cinco reglas</h2>
-    <ol class="list-decimal ml-6 space-y-3">
-      <li><strong>atacá ideas, nunca personas.</strong> cero tolerancia a insultos, ironía agresiva, ridiculización. si estás caliente, escribí mañana.</li>
-      <li><strong>argumentá, no afirmes.</strong> "esto es así" no es un argumento. mostrar el porqué sí lo es.</li>
-      <li><strong>si tenés fuente, citala.</strong> papers, libros, datos, prensa seria. las fuentes no ganan debates por sí solas, pero los enriquecen.</li>
-      <li><strong>buena fe.</strong> asumí que el otro tiene razones para pensar lo que piensa. preguntá antes de descartar.</li>
-      <li><strong>sin proselitismo ni spam.</strong> no vinimos a militar partidos ni a vender. vinimos a pensar.</li>
-    </ol>
-
-    <h2 class="text-xl mt-8 mb-2"><span style="color: var(--color-accent)">##</span> qué no vas a encontrar acá</h2>
-    <ul class="list-disc ml-6 space-y-1">
-      <li>votos, likes, karma o ranking de usuarios.</li>
-      <li>algoritmos que premian el escándalo.</li>
-      <li>hilos sobre cualquier otra cosa que no sea política o economía.</li>
-    </ul>
-
-    <h2 class="text-xl mt-8 mb-2"><span style="color: var(--color-accent)">##</span> moderación</h2>
-    <p>
-      la moderación es humana y se aplica con criterio. lo más probable, ante un mensaje fuera de tono,
-      es que te pidamos reformular. si reincidís, suspendemos la cuenta. no discutimos en público las decisiones de moderación.
+<BaseLayout title="Código de conducta">
+  <article class="thread page-anim">
+    <div class="thread__kicker">
+      <span class="kicker">Documentos</span>
+    </div>
+    <h1 class="thread__title">Código de conducta</h1>
+    <p style="font-family: var(--font-serif); font-size: 22px; line-height: 1.45; color: var(--ink-2); margin: 0 0 28px; text-wrap: pretty; max-width: 60ch;">
+      Polinomia existe porque la mayoría de los espacios para discutir política y economía no funcionan. Acá probamos otra cosa.
     </p>
 
-    <p class="mt-8 text-xs" style="color: var(--color-muted)">
-      // estas reglas pueden cambiar. cuando cambien, lo vas a ver acá.
-    </p>
-  </div>
+    <div class="body-text">
+      <h2 style="font-family: var(--font-serif); font-style: italic; font-weight: 400; font-size: 28px; margin: 32px 0 12px;">Las cinco reglas</h2>
+      <ol style="padding-left: 22px;">
+        <li><b>Atacá ideas, nunca personas.</b> Cero tolerancia a insultos, ironía agresiva, ridiculización. Si estás caliente, escribí mañana.</li>
+        <li style="margin-top: 14px;"><b>Argumentá, no afirmes.</b> "Esto es así" no es un argumento. Mostrar el porqué sí lo es.</li>
+        <li style="margin-top: 14px;"><b>Si tenés fuente, citala.</b> Papers, libros, datos, prensa seria. Las fuentes no ganan debates por sí solas, pero los enriquecen.</li>
+        <li style="margin-top: 14px;"><b>Buena fe.</b> Asumí que el otro tiene razones para pensar lo que piensa. Preguntá antes de descartar.</li>
+        <li style="margin-top: 14px;"><b>Sin proselitismo ni spam.</b> No vinimos a militar partidos ni a vender. Vinimos a pensar.</li>
+      </ol>
+
+      <h2 style="font-family: var(--font-serif); font-style: italic; font-weight: 400; font-size: 28px; margin: 36px 0 12px;">Qué no vas a encontrar acá</h2>
+      <ul style="padding-left: 22px;">
+        <li>Votos, likes, karma o ranking de usuarios.</li>
+        <li>Algoritmos que premian el escándalo.</li>
+        <li>Hilos sobre cualquier otra cosa que no sea política o economía.</li>
+      </ul>
+
+      <h2 style="font-family: var(--font-serif); font-style: italic; font-weight: 400; font-size: 28px; margin: 36px 0 12px;">Moderación</h2>
+      <p>
+        La moderación es humana y se aplica con criterio. Lo más probable, ante un mensaje fuera de tono,
+        es que te pidamos reformular. Si reincidís, suspendemos la cuenta. No discutimos en público las
+        decisiones de moderación, pero <a href="/moderacion">cada veredicto queda publicado</a> de forma anonimizada.
+      </p>
+
+      <p class="meta" style="margin-top: 32px;">
+        Estas reglas pueden cambiar. Cuando cambien, lo vas a ver acá.
+      </p>
+    </div>
+  </article>
 </BaseLayout>

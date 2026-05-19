@@ -20,34 +20,38 @@ const entries = await db.select({
 
 const isAdmin = !!Astro.locals.isAdmin;
 ---
-<BaseLayout title="bitácora de moderación">
-  <div class="max-w-3xl mx-auto px-6 py-10">
-    <p class="kicker mb-1">// moderación</p>
-    <h1 class="text-3xl mb-2 prompt">bitácora pública</h1>
-    <p class="text-sm mb-6" style="color: var(--color-muted)">
-      cada decisión de moderación queda acá, anonimizada. el criterio es público;
-      las identidades, no. <a href="/reglas" style="color: var(--color-accent)">ver código de conducta</a>.
-      {isAdmin && (<>· <a href="/moderacion/casos" style="color: var(--color-accent)">→ casos pendientes</a></>)}
+<BaseLayout title="Bitácora de moderación">
+  <article class="thread page-anim">
+    <div class="thread__kicker">
+      <span class="kicker">Moderación</span>
+    </div>
+    <h1 class="thread__title">Bitácora pública</h1>
+    <p style="font-family: var(--font-serif); font-size: 20px; line-height: 1.5; color: var(--ink-2); margin: 0 0 28px; max-width: 60ch;">
+      Cada decisión de moderación queda acá, anonimizada. El criterio es público; las identidades, no.
+      <a href="/reglas" style="color: var(--accent);">Ver código de conducta</a>.
+      {isAdmin && (<> · <a href="/moderacion/casos" style="color: var(--accent);">→ Casos pendientes</a></>)}
     </p>
 
     {entries.length === 0 ? (
-      <p style="color: var(--color-muted)">todavía no hay decisiones publicadas.</p>
+      <p class="meta" style="padding: 32px 0;">Todavía no hay decisiones publicadas.</p>
     ) : (
-      <ul>
-        {entries.map((v, i) => (
-          <li class:list={['py-4', i > 0 && 'border-t rule-soft']}>
-            <div class="flex flex-wrap items-center gap-2 mb-1 text-xs" style="color: var(--color-muted)">
-              <span class="tag tag-accent">regla {v.ruleNumber}</span>
-              <span class="tag">{decLabel.get(v.decision) ?? v.decision}</span>
-              <span>· {v.createdAt.toLocaleDateString('es', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+      <div class="feed">
+        {entries.map((v) => (
+          <article class="feed-item">
+            <div class="feed-item__head" style="grid-column: 1 / -1;">
+              <span class="kicker">Regla {v.ruleNumber}</span>
+              <span class="meta" style="color: var(--ink-3);">{decLabel.get(v.decision) ?? v.decision}</span>
+              <span class="meta" style="margin-left: auto;">{v.createdAt.toLocaleDateString('es', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
             </div>
-            <p class="text-sm">
-              <span style="color: var(--color-muted)">// {ruleLabel.get(v.ruleNumber)}.</span>
-              {' '}{v.rationale}
-            </p>
-          </li>
+            <div style="grid-column: 1 / -1;">
+              <p style="font-family: var(--font-serif); font-size: 17px; line-height: 1.5; margin: 0;">
+                <span class="meta" style="margin-right: 6px;">{ruleLabel.get(v.ruleNumber)}.</span>
+                {v.rationale}
+              </p>
+            </div>
+          </article>
         ))}
-      </ul>
+      </div>
     )}
-  </div>
+  </article>
 </BaseLayout>

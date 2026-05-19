@@ -2,23 +2,23 @@
 import BaseLayout from '~/layouts/BaseLayout.astro';
 const email = Astro.url.searchParams.get('email') ?? '';
 ---
-<BaseLayout title="revisá tu mail">
-  <div class="max-w-md mx-auto px-6 py-12">
-    <p class="kicker mb-1">// auth · paso 2</p>
-    <h1 class="text-3xl mb-4 prompt">revisá tu mail</h1>
+<BaseLayout title="Revisá tu mail">
+  <div style="max-width: 480px; margin: 0 auto; padding: 48px 0;">
+    <span class="kicker">Auth · paso 2</span>
+    <h1 style="font-family: var(--font-serif); font-weight: 400; font-size: 44px; line-height: 1.05; margin: 8px 0 20px; letter-spacing: -0.015em;">Revisá tu mail</h1>
 
-    <div class="alert mb-4">
-      te mandamos un link a <strong>{email}</strong>. hacé click ahí para entrar (o para crear tu cuenta si todavía no la tenés).
+    <div class="alert">
+      Te mandamos un link a <b>{email}</b>. Hacé click ahí para entrar (o para crear tu cuenta si todavía no la tenés).
     </div>
 
-    <ul class="text-sm space-y-2" style="color: var(--color-muted)">
-      <li>// el link vence en <strong>15 minutos</strong>.</li>
-      <li>// se usa una sola vez. si lo abrís otra vez, no funciona.</li>
-      <li>// si no ves el mail, mirá la carpeta de spam.</li>
+    <ul class="meta" style="margin-top: 24px; padding-left: 18px; line-height: 1.8;">
+      <li>El link vence en <b>15 minutos</b>.</li>
+      <li>Se usa una sola vez. Si lo abrís otra vez, no funciona.</li>
+      <li>Si no ves el mail, mirá la carpeta de spam.</li>
     </ul>
 
-    <p class="mt-8 text-sm">
-      <a href="/login" style="color: var(--color-accent)">← volver a login</a>
+    <p style="margin-top: 32px;">
+      <a href="/login" class="meta" style="color: var(--accent);">← Volver a login</a>
     </p>
   </div>
 </BaseLayout>

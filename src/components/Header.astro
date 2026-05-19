@@ -2,53 +2,51 @@
 const user = Astro.locals.user;
 const isAdmin = !!Astro.locals.isAdmin;
 const path = Astro.url.pathname;
-const navItem = (href: string, label: string, active: boolean) =>
-  ({ href, label, active });
-const items = [
-  navItem('/', 'temas', path === '/'),
-  navItem('/paises', 'paises', path.startsWith('/paises') || path.startsWith('/pais/')),
-  navItem('/reglas', 'reglas', path === '/reglas'),
-  navItem('/moderacion', 'moderacion', path.startsWith('/moderacion')),
+
+const now = new Date();
+const fmt = new Intl.DateTimeFormat('es', {
+  weekday: 'long',
+  day: 'numeric',
+  month: 'long',
+  year: 'numeric',
+});
+const edition = fmt.format(now);
+
+const navItems: { href: string; label: string; active: boolean }[] = [
+  { href: '/', label: 'Foro', active: path === '/' },
+  { href: '/paises', label: 'Países', active: path.startsWith('/paises') || path.startsWith('/pais/') },
+  { href: '/moderacion', label: 'Moderación', active: path.startsWith('/moderacion') },
+  { href: '/reglas', label: 'Reglas', active: path === '/reglas' },
 ];
 ---
-<header class="border-b rule" style="background: var(--color-paper)">
-  <div class="max-w-5xl mx-auto px-6 pt-5 pb-3 flex items-end justify-between gap-6 flex-wrap">
-    <a href="/" class="flex items-baseline gap-3">
-      <span class="text-2xl font-bold tracking-tight">
-        <span style="color: var(--color-accent)">[</span>polinomia<span style="color: var(--color-accent)">]</span>
-      </span>
-      <span class="kicker hidden sm:inline">foro · política · economía</span>
-    </a>
-    <nav class="flex items-center gap-2 text-sm flex-wrap">
-      {items.map((it) => (
-        <a
-          href={it.href}
-          class:list={['tag', it.active && 'tag-accent']}
-        >{it.label}</a>
-      ))}
-      <button type="button" data-theme-toggle aria-label="cambiar tema" class="theme-toggle">
-        <span class="theme-dark-label">[~dark]</span>
-        <span class="theme-light-label">[~light]</span>
-      </button>
-      <span class="mx-2 text-[var(--color-soft)] select-none">│</span>
+<header class="masthead">
+  <div class="masthead__top">
+    <span>Edición · {edition}</span>
+    <span style="display:flex; gap:16px; align-items:center; flex-wrap:wrap;">
+      <button type="button" data-palette-toggle aria-label="cambiar tono" class="masthead__theme">Cambiar tono</button>
       {user ? (
-        <>
-          {isAdmin && <a href="/moderacion/casos" class="tag tag-accent">[admin]</a>}
-          <a href="/h/nuevo" class="btn">+ hilo</a>
-          <a href={`/u/${user.username}`} class="tag">@{user.username}</a>
-          <form method="post" action="/api/logout" style="display:inline">
-            <button type="submit" class="btn btn-ghost">salir</button>
-          </form>
-        </>
+        <a href={`/u/${user.username}`}>{user.username}</a>
       ) : (
-        <>
-          <a href="/login" class="tag">entrar</a>
-          <a href="/registro" class="btn">registrarse</a>
-        </>
+        <a href="/login">Iniciar sesión · Registrarse</a>
       )}
-    </nav>
+    </span>
   </div>
-  <div class="max-w-5xl mx-auto px-6 pb-1 divider-ascii" aria-hidden="true">
-    ────────────────────────────────────────────────────────────────────────────────────────────────
-  </div>
+  <h1 class="masthead__wordmark">Polinomia</h1>
+  <p class="masthead__tagline">Un foro de debate de política y economía, abierto a quienes lo practican en serio.</p>
+  <nav class="masthead__nav">
+    {navItems.map((it) => (
+      <a href={it.href} class:list={[it.active && 'is-active']}>{it.label}</a>
+    ))}
+    {user && (
+      <a href="/h/nuevo" class:list={[path === '/h/nuevo' && 'is-active']}>Abrir hilo</a>
+    )}
+    {isAdmin && (
+      <a href="/moderacion/casos" class:list={[path === '/moderacion/casos' && 'is-active']} style="color: var(--accent)">Admin</a>
+    )}
+    {user && (
+      <form method="post" action="/api/logout" style="display:inline;">
+        <button type="submit" style="appearance:none; border:0; background:transparent; font: inherit; letter-spacing: inherit; text-transform: inherit; color: var(--ink-3); cursor: pointer; padding: 8px 0;">Salir</button>
+      </form>
+    )}
+  </nav>
 </header>

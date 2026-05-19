@@ -3,38 +3,37 @@ import BaseLayout from '~/layouts/BaseLayout.astro';
 if (Astro.locals.user) return Astro.redirect('/');
 const error = Astro.url.searchParams.get('error');
 const errors: Record<string, string> = {
-  email_invalid: 'email inválido.',
-  magic_invalid: 'el link es inválido.',
-  magic_expired: 'el link expiró o ya fue usado.',
+  email_invalid: 'Email inválido.',
+  magic_invalid: 'El link es inválido.',
+  magic_expired: 'El link expiró o ya fue usado.',
 };
 ---
-<BaseLayout title="registrarse">
-  <div class="max-w-md mx-auto px-6 py-12">
-    <p class="kicker mb-1">// auth</p>
-    <h1 class="text-3xl mb-2 prompt">crear cuenta</h1>
-    <p class="text-sm mb-6" style="color: var(--color-muted)">
-      antes de participar, leé el <a href="/reglas" style="color: var(--color-accent)">código de conducta</a>.
-      polinomia es para discutir con argumentos y fuentes.
+<BaseLayout title="Crear cuenta">
+  <div style="max-width: 420px; margin: 0 auto; padding: 48px 0;">
+    <span class="kicker">Auth</span>
+    <h1 style="font-family: var(--font-serif); font-weight: 400; font-size: 44px; line-height: 1.05; margin: 8px 0 12px; letter-spacing: -0.015em;">Crear cuenta</h1>
+    <p class="meta" style="margin-bottom: 24px; font-size: 14px;">
+      Antes de participar, leé el <a href="/reglas" style="color: var(--accent);">código de conducta</a>. Polinomia es para discutir con argumentos y fuentes.
     </p>
 
-    {error && <div class="alert alert-error mb-4">{errors[error] ?? 'hubo un error.'}</div>}
+    {error && <div class="alert alert-error">{errors[error] ?? 'Hubo un error.'}</div>}
 
-    <form method="post" action="/api/auth/magic/request" class="space-y-3 mb-5">
-      <label class="block">
-        <span class="kicker block mb-1">tu email</span>
+    <form method="post" action="/api/auth/magic/request" style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px;">
+      <label style="display: block;">
+        <span class="kicker kicker--muted" style="display: block; margin-bottom: 6px;">Tu email</span>
         <input type="email" name="email" required placeholder="vos@ejemplo.com" />
       </label>
-      <label class="flex items-start gap-2 text-sm">
-        <input type="checkbox" name="accept" required class="mt-1" style="width:auto; box-shadow:none" />
-        <span>acepto el <a href="/reglas" style="color: var(--color-accent)">código de conducta</a>.</span>
+      <label style="display: flex; align-items: flex-start; gap: 10px; font-size: 14px; font-family: var(--font-serif);">
+        <input type="checkbox" name="accept" required style="width: auto; margin-top: 4px;" />
+        <span>Acepto el <a href="/reglas" style="color: var(--accent);">código de conducta</a>.</span>
       </label>
-      <button type="submit" class="btn w-full">→ mandame un link para empezar</button>
+      <button type="submit" class="btn">→ Mandame un link para empezar</button>
     </form>
 
-    <div class="flex items-center gap-3 my-4 text-xs" style="color: var(--color-muted)">
-      <span class="flex-1 divider-ascii">─────────────────</span>
+    <div style="display: flex; align-items: center; gap: 16px; margin: 24px 0; color: var(--ink-3); font-family: var(--font-sans); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase;">
+      <span style="flex: 1; height: 1px; background: var(--rule);"></span>
       <span>o</span>
-      <span class="flex-1 divider-ascii">─────────────────</span>
+      <span style="flex: 1; height: 1px; background: var(--rule);"></span>
     </div>
 
     <a href="/api/auth/google/start" class="btn-google" role="button">
@@ -44,11 +43,11 @@ const errors: Record<string, string> = {
         <path fill="#4CAF50" d="M24 44c5.4 0 10.3-2 14-5.4l-6.5-5.3C29.4 35 26.9 36 24 36c-5.3 0-9.7-3.4-11.3-8L6 32.6C9.3 39.5 16.1 44 24 44z"/>
         <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.3 4.3-4.2 5.7l6.5 5.3C41.8 35.8 44 30.3 44 24c0-1.3-.1-2.4-.4-3.5z"/>
       </svg>
-      registrarse con google
+      Registrarse con Google
     </a>
 
-    <p class="mt-8 text-xs" style="color: var(--color-muted)">
-      una vez adentro vas a poder agregar una passkey (face id / touch id / yubikey) para entrar sin email.
+    <p class="meta" style="margin-top: 32px; line-height: 1.6;">
+      Una vez adentro vas a poder agregar una passkey (Face ID / Touch ID / YubiKey) para entrar sin email.
     </p>
   </div>
 </BaseLayout>

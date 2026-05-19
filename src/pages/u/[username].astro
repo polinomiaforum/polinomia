@@ -1,5 +1,6 @@
 ---
 import BaseLayout from '~/layouts/BaseLayout.astro';
+import Byline from '~/components/Byline.astro';
 import { db, schema } from '~/db';
 import { desc, eq, sql } from 'drizzle-orm';
 import { relativeTime } from '~/lib/text';
@@ -36,15 +37,10 @@ const threads = await db.select({
   .where(eq(schema.threads.authorId, user.id))
   .orderBy(desc(schema.threads.lastActivityAt));
 
-const [{ count: postCount }] = await db.select({
-  count: sql<number>`count(*)::int`,
-})
-  .from(schema.posts)
-  .where(eq(schema.posts.authorId, user.id));
+const [{ count: postCount }] = await db.select({ count: sql<number>`count(*)::int` })
+  .from(schema.posts).where(eq(schema.posts.authorId, user.id));
 
-const [{ count: sourceCount }] = await db.select({
-  count: sql<number>`count(*)::int`,
-})
+const [{ count: sourceCount }] = await db.select({ count: sql<number>`count(*)::int` })
   .from(schema.sources)
   .innerJoin(schema.posts, eq(schema.posts.id, schema.sources.postId))
   .where(eq(schema.posts.authorId, user.id));
@@ -58,77 +54,84 @@ const userPasskeys = isMe
   : [];
 ---
 <BaseLayout title={`@${user.username}`}>
-  <div class="max-w-3xl mx-auto px-6 py-10">
-    <p class="kicker mb-1">// perfil</p>
-    <div class="flex items-center gap-4 mb-2">
-      {user.avatarUrl && (
-        <img src={user.avatarUrl} alt="" width="48" height="48" class="border rule" style="image-rendering: auto" />
-      )}
-      <h1 class="text-3xl prompt">@{user.username}</h1>
+  <article class="thread page-anim" style="max-width: 800px;">
+    <div class="thread__kicker">
+      <span class="kicker">Perfil</span>
     </div>
-    {user.declaredView && <p class="text-sm mb-2" style="color: var(--color-muted)">{user.declaredView}</p>}
-    <p class="text-xs" style="color: var(--color-muted)">
-      // miembro desde {user.createdAt.toLocaleDateString('es', { month: 'long', year: 'numeric' })}
-      &middot; {threads.length} hilos &middot; {postCount} respuestas &middot; {sourceCount} fuentes citadas
+
+    <div style="display: flex; align-items: center; gap: 18px; margin-bottom: 8px;">
+      <Byline username={user.username} declaredView={user.declaredView} avatarUrl={user.avatarUrl} size="lg" />
+    </div>
+
+    <p class="meta" style="margin: 8px 0 4px;">
+      Miembro desde {user.createdAt.toLocaleDateString('es', { month: 'long', year: 'numeric' })}
+      &middot; <b style="color: var(--ink);">{threads.length}</b> hilos
+      &middot; <b style="color: var(--ink);">{postCount}</b> respuestas
+      &middot; <b style="color: var(--ink);">{sourceCount}</b> fuentes citadas
     </p>
-    {user.bio && <p class="mt-4 prose-body">{user.bio}</p>}
+
+    {user.bio && (
+      <p style="font-family: var(--font-serif); font-size: 19px; line-height: 1.55; margin-top: 20px; color: var(--ink); max-width: 60ch;">
+        {user.bio}
+      </p>
+    )}
 
     {isMe && (
       <>
-        <details class="mt-6 card p-4">
-          <summary class="cursor-pointer text-sm font-semibold">editar mi perfil</summary>
-          {updated && <div class="alert alert-ok my-3">perfil actualizado.</div>}
-          <form method="post" action="/api/profile" class="space-y-3 mt-3">
-            <label class="block">
-              <span class="kicker block mb-1">postura declarada (opcional)</span>
+        <details style="margin-top: 32px;" class="card">
+          <summary style="cursor: pointer; font-family: var(--font-serif); font-style: italic; font-size: 18px;">Editar mi perfil</summary>
+          {updated && <div class="alert alert-ok" style="margin-top: 16px;">Perfil actualizado.</div>}
+          <form method="post" action="/api/profile" style="display: flex; flex-direction: column; gap: 12px; margin-top: 16px;">
+            <label>
+              <span class="kicker kicker--muted" style="display: block; margin-bottom: 6px;">Postura declarada</span>
               <input type="text" name="declaredView" value={user.declaredView ?? ''} placeholder="ej: economista, escuela austríaca" maxlength="100" />
             </label>
-            <label class="block">
-              <span class="kicker block mb-1">bio (opcional)</span>
+            <label>
+              <span class="kicker kicker--muted" style="display: block; margin-bottom: 6px;">Bio</span>
               <textarea name="bio" rows="3" maxlength="500">{user.bio ?? ''}</textarea>
             </label>
-            <button type="submit" class="btn">guardar</button>
+            <button type="submit" class="btn" style="align-self: flex-start;">Guardar</button>
           </form>
         </details>
 
-        <details class="mt-4 card p-4">
-          <summary class="cursor-pointer text-sm font-semibold">mis passkeys ({userPasskeys.length})</summary>
-          <p class="text-xs mt-2 mb-3" style="color: var(--color-muted)">
-            las passkeys te dejan entrar con face id / touch id / yubikey, sin contraseña y sin esperar el mail. registrá una en cada dispositivo que uses seguido.
+        <details style="margin-top: 16px;" class="card">
+          <summary style="cursor: pointer; font-family: var(--font-serif); font-style: italic; font-size: 18px;">Passkeys ({userPasskeys.length})</summary>
+          <p class="meta" style="margin: 12px 0; line-height: 1.6;">
+            Las passkeys te dejan entrar con Face ID / Touch ID / YubiKey, sin contraseña y sin esperar el mail. Registrá una en cada dispositivo que uses seguido.
           </p>
 
-          {passkeyMsg === 'added' && <div class="alert alert-ok mb-3">passkey agregada.</div>}
-          {passkeyMsg === 'removed' && <div class="alert alert-ok mb-3">passkey eliminada.</div>}
-          <div id="passkey-msg" class="alert alert-error mb-3" style="display:none"></div>
+          {passkeyMsg === 'added' && <div class="alert alert-ok">Passkey agregada.</div>}
+          {passkeyMsg === 'removed' && <div class="alert alert-ok">Passkey eliminada.</div>}
+          <div id="passkey-msg" class="alert alert-error" style="display:none;"></div>
 
           {userPasskeys.length === 0 ? (
-            <p class="text-xs mb-3" style="color: var(--color-muted)">no tenés passkeys registradas.</p>
+            <p class="meta" style="font-style: italic;">No tenés passkeys registradas.</p>
           ) : (
-            <ul class="text-sm space-y-2 mb-3">
+            <ul style="list-style: none; padding: 0; margin: 0 0 16px;">
               {userPasskeys.map((pk) => (
-                <li class="flex items-center justify-between gap-3 border rule p-2">
+                <li style="display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--rule);">
                   <div>
-                    <strong>{pk.deviceName ?? 'passkey'}</strong>
-                    <div class="text-xs" style="color: var(--color-muted)">
-                      // agregada {relativeTime(pk.createdAt)}
+                    <div style="font-family: var(--font-serif); font-size: 16px; font-weight: 500;">{pk.deviceName ?? 'passkey'}</div>
+                    <div class="meta">
+                      Agregada {relativeTime(pk.createdAt)}
                       {pk.lastUsedAt && <> · usada {relativeTime(pk.lastUsedAt)}</>}
                     </div>
                   </div>
                   <form method="post" action="/api/auth/passkey/delete">
                     <input type="hidden" name="passkeyId" value={pk.id} />
-                    <button type="submit" class="btn btn-ghost text-xs">borrar</button>
+                    <button type="submit" class="btn btn-ghost">Borrar</button>
                   </form>
                 </li>
               ))}
             </ul>
           )}
 
-          <div class="flex items-end gap-2">
-            <label class="flex-1">
-              <span class="kicker block mb-1">nombre del dispositivo</span>
+          <div style="display: flex; align-items: flex-end; gap: 8px;">
+            <label style="flex: 1;">
+              <span class="kicker kicker--muted" style="display: block; margin-bottom: 6px;">Nombre del dispositivo</span>
               <input type="text" id="passkey-name" placeholder="ej: mi iphone" maxlength="60" />
             </label>
-            <button type="button" id="passkey-add" class="btn">+ agregar passkey</button>
+            <button type="button" id="passkey-add" class="btn">+ Agregar passkey</button>
           </div>
         </details>
 
@@ -142,7 +145,7 @@ const userPasskeys = isMe
           function show(text: string, ok = false) {
             if (!msg) return;
             msg.textContent = text;
-            msg.className = ok ? 'alert alert-ok mb-3' : 'alert alert-error mb-3';
+            msg.className = ok ? 'alert alert-ok' : 'alert alert-error';
             msg.style.display = 'block';
           }
 
@@ -171,7 +174,7 @@ const userPasskeys = isMe
               } catch (err: any) {
                 if (err?.name === 'NotAllowedError') return;
                 console.error(err);
-                show('error: ' + (err?.message ?? 'desconocido'));
+                show('Error: ' + (err?.message ?? 'desconocido'));
               }
             });
           }
@@ -179,27 +182,27 @@ const userPasskeys = isMe
       </>
     )}
 
-    <h2 class="kicker mt-10 mb-3 flex items-center gap-2">
-      <span>// hilos abiertos</span>
-      <span class="flex-1 divider-ascii">─────────────────────────────────</span>
-    </h2>
+    <header class="replies-h" style="margin-top: 48px;">
+      <h3>Hilos abiertos</h3>
+    </header>
+
     {threads.length === 0 ? (
-      <p style="color: var(--color-muted)">todavía no abrió hilos.</p>
+      <p class="meta" style="padding: 32px 0;">Todavía no abrió hilos.</p>
     ) : (
-      <ul>
-        {threads.map((t, i) => (
-          <li class:list={['py-3', i > 0 && 'border-t rule-soft']}>
-            <a href={`/h/${t.id}`} class="thread-title text-base block">
-              <span style="color: var(--color-accent)">&gt;</span> {t.title}
-            </a>
-            <div class="text-xs flex flex-wrap gap-x-2 gap-y-1 mt-1" style="color: var(--color-muted)">
-              <a href={`/tema/${t.topicSlug}`} class="tag">{t.topicName.toLowerCase()}</a>
-              <a href={`/pais/${t.countrySlug}`} class="tag">{t.countryName.toLowerCase()}</a>
-              <span>· {relativeTime(t.lastActivityAt)}</span>
+      <div class="feed">
+        {threads.map((t) => (
+          <article class="feed-item">
+            <div class="feed-item__head" style="grid-column: 1 / -1;">
+              <span class="kicker"><a href={`/tema/${t.topicSlug}`} style="color: inherit;">{t.topicName}</a></span>
+              <span class="meta" style="color: var(--ink-3);">{t.countryName}</span>
+              <span class="meta" style="margin-left: auto;">{relativeTime(t.lastActivityAt)}</span>
             </div>
-          </li>
+            <h2 class="feed-item__title" style="font-size: 22px;">
+              <a href={`/h/${t.id}`}>{t.title}</a>
+            </h2>
+          </article>
         ))}
-      </ul>
+      </div>
     )}
-  </div>
+  </article>
 </BaseLayout>

@@ -1,7 +1,8 @@
 ---
 import BaseLayout from '~/layouts/BaseLayout.astro';
+import Byline from '~/components/Byline.astro';
 import { db, schema } from '~/db';
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, sql } from 'drizzle-orm';
 import { relativeTime } from '~/lib/text';
 
 const { slug } = Astro.params;
@@ -20,6 +21,8 @@ const threads = await db.select({
   countrySlug: schema.countries.slug,
   countryName: schema.countries.name,
   authorUsername: schema.users.username,
+  authorDeclaredView: schema.users.declaredView,
+  authorAvatarUrl: schema.users.avatarUrl,
 })
   .from(schema.threads)
   .innerJoin(schema.countries, eq(schema.countries.id, schema.threads.countryId))
@@ -40,46 +43,54 @@ const countries = await db.selectDistinct({
   .orderBy(schema.countries.name);
 ---
 <BaseLayout title={topic.name}>
-  <div class="max-w-5xl mx-auto px-6 py-10">
-    <nav class="text-xs mb-2" style="color: var(--color-muted)">
-      <a href="/">~/temas</a> / {topic.slug}
-    </nav>
-    <h1 class="text-3xl mb-2 prompt">{topic.name.toLowerCase()}</h1>
-    {topic.description && <p class="mb-6 text-sm" style="color: var(--color-muted)">{topic.description}</p>}
+  <div style="padding: 24px 0 12px;">
+    <span class="kicker"><a href="/" style="color: inherit;">Foro</a> · {topic.name}</span>
+  </div>
 
-    {countries.length > 0 && (
-      <div class="text-xs mb-6 pb-3 border-b rule-soft flex flex-wrap items-center gap-2">
-        <span style="color: var(--color-muted)">// filtrar:</span>
-        <a href={`/tema/${topic.slug}`} class:list={['tag', !countryFilter && 'tag-accent']}>todos</a>
+  <h1 style="font-family: var(--font-serif); font-weight: 400; font-size: clamp(40px, 5vw, 56px); line-height: 1.05; margin: 8px 0 12px; letter-spacing: -0.018em;">
+    {topic.name}
+  </h1>
+  {topic.description && (
+    <p style="font-family: var(--font-serif); font-size: 20px; line-height: 1.5; color: var(--ink-2); margin: 0 0 24px; max-width: 60ch;">
+      {topic.description}
+    </p>
+  )}
+
+  {countries.length > 0 && (
+    <div class="substrip">
+      <div class="substrip__cats">
+        <a href={`/tema/${topic.slug}`} class:list={[!countryFilter && 'is-active']}>Todos los países</a>
         {countries.map((c) => (
-          <a href={`/tema/${topic.slug}?pais=${c.slug}`} class:list={['tag', countryFilter === c.slug && 'tag-accent']}>{c.name.toLowerCase()}</a>
+          <a href={`/tema/${topic.slug}?pais=${c.slug}`} class:list={[countryFilter === c.slug && 'is-active']}>{c.name}</a>
         ))}
       </div>
-    )}
-
-    {threads.length === 0 ? (
-      <p style="color: var(--color-muted)">todavía no hay hilos. <a href="/h/nuevo" style="color: var(--color-accent)">abrí el primero →</a></p>
-    ) : (
-      <ul>
-        {threads.map((t, i) => (
-          <li class:list={['py-4', i > 0 && 'border-t rule-soft']}>
-            <a href={`/h/${t.id}`} class="thread-title text-lg block">
-              <span style="color: var(--color-accent)">&gt;</span> {t.title}
-            </a>
-            <div class="text-xs mt-1 flex flex-wrap gap-x-2 gap-y-1" style="color: var(--color-muted)">
-              <a href={`/pais/${t.countrySlug}`} class="tag">{t.countryName.toLowerCase()}</a>
-              <span>·</span>
-              <span>por <a href={`/u/${t.authorUsername}`} style="color: var(--color-ink)">@{t.authorUsername}</a></span>
-              <span>·</span>
-              <span>última actividad {relativeTime(t.lastActivityAt)}</span>
-            </div>
-          </li>
-        ))}
-      </ul>
-    )}
-
-    <div class="mt-8">
-      <a href={`/h/nuevo?tema=${topic.slug}`} class="btn">+ hilo en {topic.name.toLowerCase()}</a>
     </div>
+  )}
+
+  {threads.length === 0 ? (
+    <p class="meta" style="padding: 60px 0; text-align: center;">
+      Todavía no hay hilos. <a href="/h/nuevo" style="color: var(--accent);">Abrí el primero →</a>
+    </p>
+  ) : (
+    <div class="feed">
+      {threads.map((t) => (
+        <article class="feed-item">
+          <div class="feed-item__head" style="grid-column: 1 / -1;">
+            <span class="meta" style="color: var(--ink-3);">{t.countryName}</span>
+            <span class="meta" style="margin-left: auto;">{relativeTime(t.lastActivityAt)}</span>
+          </div>
+          <h2 class="feed-item__title">
+            <a href={`/h/${t.id}`}>{t.title}</a>
+          </h2>
+          <div class="feed-item__footer">
+            <Byline username={t.authorUsername} declaredView={t.authorDeclaredView} avatarUrl={t.authorAvatarUrl} />
+          </div>
+        </article>
+      ))}
+    </div>
+  )}
+
+  <div style="margin-top: 36px; padding-bottom: 60px;">
+    <a href={`/h/nuevo?tema=${topic.slug}`} class="btn">Abrir un hilo en {topic.name}</a>
   </div>
 </BaseLayout>
