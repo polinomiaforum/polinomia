@@ -1,14 +1,14 @@
 ---
 import BaseLayout from '~/layouts/BaseLayout.astro';
+import Byline from '~/components/Byline.astro';
 import { db, schema } from '~/db';
-import { desc, eq, sql } from 'drizzle-orm';
+import { desc, eq, sql, gte } from 'drizzle-orm';
 import { relativeTime } from '~/lib/text';
 
 const topics = await db.select({
   id: schema.topics.id,
   slug: schema.topics.slug,
   name: schema.topics.name,
-  description: schema.topics.description,
   threadCount: sql<number>`count(${schema.threads.id})::int`,
 })
   .from(schema.topics)
@@ -16,86 +16,247 @@ const topics = await db.select({
   .groupBy(schema.topics.id)
   .orderBy(schema.topics.sortOrder, schema.topics.name);
 
-const recent = await db.select({
+const activeTopic = Astro.url.searchParams.get('tema');
+const sortBy = Astro.url.searchParams.get('orden') ?? 'recientes';
+
+const allThreadsQuery = db.select({
   id: schema.threads.id,
   title: schema.threads.title,
+  createdAt: schema.threads.createdAt,
   lastActivityAt: schema.threads.lastActivityAt,
   topicSlug: schema.topics.slug,
   topicName: schema.topics.name,
   countrySlug: schema.countries.slug,
   countryName: schema.countries.name,
+  authorId: schema.users.id,
   authorUsername: schema.users.username,
+  authorDeclaredView: schema.users.declaredView,
+  authorAvatarUrl: schema.users.avatarUrl,
 })
   .from(schema.threads)
   .innerJoin(schema.topics, eq(schema.topics.id, schema.threads.topicId))
   .innerJoin(schema.countries, eq(schema.countries.id, schema.threads.countryId))
-  .innerJoin(schema.users, eq(schema.users.id, schema.threads.authorId))
-  .orderBy(desc(schema.threads.lastActivityAt))
-  .limit(15);
+  .innerJoin(schema.users, eq(schema.users.id, schema.threads.authorId));
+
+const threads = await (activeTopic
+  ? allThreadsQuery.where(eq(schema.topics.slug, activeTopic))
+  : allThreadsQuery
+).orderBy(desc(schema.threads.lastActivityAt)).limit(30);
+
+const threadIds = threads.map((t) => t.id);
+
+let contribsByThread = new Map<number, number>();
+let firstParaByThread = new Map<number, string>();
+
+if (threadIds.length > 0) {
+  const contribRows = await db.select({
+    threadId: schema.posts.threadId,
+    count: sql<number>`count(distinct ${schema.posts.authorId})::int`,
+  })
+    .from(schema.posts)
+    .where(sql`${schema.posts.threadId} in (${sql.join(threadIds.map((id) => sql`${id}`), sql`, `)}) and ${schema.posts.hiddenAt} is null`)
+    .groupBy(schema.posts.threadId);
+
+  for (const r of contribRows) contribsByThread.set(r.threadId, r.count);
+
+  const openingRows = await db.select({
+    threadId: schema.posts.threadId,
+    body: schema.posts.body,
+  })
+    .from(schema.posts)
+    .where(sql`${schema.posts.threadId} in (${sql.join(threadIds.map((id) => sql`${id}`), sql`, `)}) and ${schema.posts.isOpening} = 1`);
+
+  for (const r of openingRows) {
+    const firstPara = r.body.split(/\n\n/)[0]?.replace(/\n/g, ' ').slice(0, 280) ?? '';
+    firstParaByThread.set(r.threadId, firstPara);
+  }
+}
+
+const sortedThreads = sortBy === 'debatidos'
+  ? [...threads].sort((a, b) => (contribsByThread.get(b.id) ?? 0) - (contribsByThread.get(a.id) ?? 0))
+  : threads;
+
+const lead = sortedThreads[0];
+const rest = sortedThreads.slice(1);
+
+const sevenDaysAgo = new Date(Date.now() - 7 * 86400_000);
+
+const topReads = await db.select({
+  id: schema.threads.id,
+  title: schema.threads.title,
+})
+  .from(schema.threads)
+  .innerJoin(schema.posts, eq(schema.posts.threadId, schema.threads.id))
+  .where(gte(schema.posts.createdAt, sevenDaysAgo))
+  .groupBy(schema.threads.id)
+  .orderBy(desc(sql`count(${schema.posts.id})`))
+  .limit(4);
+
+const activeContribs = await db.select({
+  id: schema.users.id,
+  username: schema.users.username,
+  declaredView: schema.users.declaredView,
+  avatarUrl: schema.users.avatarUrl,
+  postCount: sql<number>`count(${schema.posts.id})::int`,
+})
+  .from(schema.users)
+  .innerJoin(schema.posts, eq(schema.posts.authorId, schema.users.id))
+  .where(gte(schema.posts.createdAt, sevenDaysAgo))
+  .groupBy(schema.users.id)
+  .orderBy(desc(sql`count(${schema.posts.id})`))
+  .limit(5);
+
+const roman = ['I', 'II', 'III', 'IV', 'V', 'VI'];
+
+const leadFirstPara = lead ? (firstParaByThread.get(lead.id) ?? '') : '';
 ---
 <BaseLayout>
-  <div class="max-w-5xl mx-auto px-6 py-10">
-    <section class="mb-10">
-      <p class="kicker mb-2">~ /home/foro &mdash; sesión iniciada</p>
-      <h1 class="text-3xl md:text-4xl mb-4 leading-tight">
-        <span class="prompt">discutí política y economía.</span><br>
-        <span style="color: var(--color-accent)">con</span> argumentos. <span style="color: var(--color-accent)">con</span> fuentes.
-      </h1>
-      <p class="text-sm max-w-2xl" style="color: var(--color-muted)">
-        polinomia es un foro chico y exigente. acá no hay votos, no hay rankings, no hay algoritmo:
-        solo hilos, respuestas, y las fuentes que cada uno trae. las agresiones personales no se toleran.
-      </p>
-    </section>
+  <div class="substrip">
+    <div class="substrip__cats">
+      <a href="/" class:list={[!activeTopic && 'is-active']}>Todo el foro</a>
+      {topics.map((t) => (
+        <a href={`/?tema=${t.slug}`} class:list={[activeTopic === t.slug && 'is-active']}>{t.name}</a>
+      ))}
+    </div>
+    <div style="display: flex; gap: 6px; align-items: center; color: var(--ink-3);">
+      <span>Ordenar:</span>
+      <form method="get" style="display:inline;">
+        {activeTopic && <input type="hidden" name="tema" value={activeTopic} />}
+        <select name="orden" onchange="this.form.submit()" style="background: transparent; border: 0; padding: 4px 16px 4px 6px; color: var(--ink); font: inherit; font-weight: 500;">
+          <option value="recientes" selected={sortBy === 'recientes'}>Más recientes</option>
+          <option value="debatidos" selected={sortBy === 'debatidos'}>Más debatidos</option>
+        </select>
+      </form>
+    </div>
+  </div>
 
-    <div class="grid md:grid-cols-3 gap-10">
-      <section class="md:col-span-2">
-        <h2 class="kicker mb-3 flex items-center gap-2">
-          <span>// hilos recientes</span>
-          <span class="flex-1 divider-ascii">─────────────────────────────────────────</span>
-        </h2>
-        {recent.length === 0 ? (
-          <p style="color: var(--color-muted)">todavía no hay hilos. <a href="/h/nuevo" style="color: var(--color-accent)">abrí el primero →</a></p>
-        ) : (
-          <ul>
-            {recent.map((t, i) => (
-              <li class:list={['py-4', i > 0 && 'border-t rule-soft']}>
-                <a href={`/h/${t.id}`} class="thread-title text-lg block">
-                  <span style="color: var(--color-accent)">&gt;</span> {t.title}
-                </a>
-                <div class="text-xs mt-1 flex flex-wrap gap-x-2 gap-y-1" style="color: var(--color-muted)">
-                  <a href={`/tema/${t.topicSlug}`} class="tag">{t.topicName.toLowerCase()}</a>
-                  <a href={`/pais/${t.countrySlug}`} class="tag">{t.countryName.toLowerCase()}</a>
-                  <span>·</span>
-                  <span>por <a href={`/u/${t.authorUsername}`} style="color: var(--color-ink)">@{t.authorUsername}</a></span>
-                  <span>·</span>
-                  <span>{relativeTime(t.lastActivityAt)}</span>
+  <div class="grid">
+    <main>
+      {lead ? (
+        <article class="lead page-anim">
+          <div>
+            <div class="lead__kicker">
+              <span class="dot"></span>
+              <span class="kicker">En curso · <a href={`/tema/${lead.topicSlug}`} style="color: inherit;">{lead.topicName}</a></span>
+              <span class="meta">{relativeTime(lead.lastActivityAt)} activo</span>
+            </div>
+            <h1 class="lead__title">
+              <a href={`/h/${lead.id}`}>{lead.title}</a>
+            </h1>
+            {leadFirstPara && <p class="lead__lede">{leadFirstPara}{leadFirstPara.length >= 280 && '…'}</p>}
+            <div class="lead__byline">
+              <Byline username={lead.authorUsername} declaredView={lead.authorDeclaredView} avatarUrl={lead.authorAvatarUrl} size="lg" />
+            </div>
+            <div class="lead__stats">
+              <div class="lead__stat">
+                <div class="lead__stat-n">{contribsByThread.get(lead.id) ?? 1}</div>
+                <div class="lead__stat-l">Contribuciones</div>
+              </div>
+              <div class="lead__stat">
+                <div class="lead__stat-n">{lead.countryName}</div>
+                <div class="lead__stat-l">País</div>
+              </div>
+              <div class="lead__stat">
+                <div class="lead__stat-n">{relativeTime(lead.createdAt)}</div>
+                <div class="lead__stat-l">Abierto</div>
+              </div>
+            </div>
+          </div>
+          <aside class="lead__visual">
+            <span class="kicker kicker--muted">De este hilo</span>
+            <blockquote class="pullquote">
+              {leadFirstPara ? leadFirstPara.slice(0, 220) + (leadFirstPara.length > 220 ? '…' : '') : lead.title}
+            </blockquote>
+            <div class="pullquote__attr">— @{lead.authorUsername}{lead.authorDeclaredView ? `, ${lead.authorDeclaredView}` : ''}</div>
+          </aside>
+        </article>
+      ) : (
+        <div style="padding: 60px 0; text-align: center;">
+          <p class="meta">Todavía no hay hilos. <a href="/h/nuevo" style="color: var(--accent);">Abrí el primero →</a></p>
+        </div>
+      )}
+
+      <div class="feed">
+        {rest.map((t) => (
+          <article class="feed-item">
+            <div class="feed-item__head" style="grid-column: 1 / -1;">
+              <span class="kicker"><a href={`/tema/${t.topicSlug}`} style="color: inherit;">{t.topicName}</a></span>
+              <span class="meta" style="color: var(--ink-3);">{t.countryName}</span>
+              <span class="meta" style="margin-left: auto;">{relativeTime(t.lastActivityAt)}</span>
+            </div>
+            <h2 class="feed-item__title">
+              <a href={`/h/${t.id}`}>{t.title}</a>
+            </h2>
+            {firstParaByThread.get(t.id) && (
+              <p class="feed-item__lede">
+                {firstParaByThread.get(t.id)!.slice(0, 220)}
+                {firstParaByThread.get(t.id)!.length > 220 && '…'}
+              </p>
+            )}
+            <div class="feed-item__footer">
+              <Byline username={t.authorUsername} declaredView={t.authorDeclaredView} avatarUrl={t.authorAvatarUrl} />
+            </div>
+            <div class="feed-item__aside">
+              <div>
+                <div class="feed-item__num">{contribsByThread.get(t.id) ?? 1}</div>
+                <div class="feed-item__num-lbl">contribuciones</div>
+              </div>
+            </div>
+          </article>
+        ))}
+      </div>
+    </main>
+
+    <aside class="rail">
+      <section class="rail-section">
+        <div class="rail-section__h">
+          <h3>Lecturas de la semana</h3>
+          <span class="meta-mono">7 días</span>
+        </div>
+        <div class="rail-list">
+          {topReads.length === 0 ? (
+            <p class="meta" style="padding: 14px 0;">Sin actividad en la última semana.</p>
+          ) : (
+            topReads.map((r, i) => (
+              <div class="rail-item">
+                <div class="rail-item__idx">{roman[i]}.</div>
+                <div class="rail-item__body">
+                  <p class="rail-item__t"><a href={`/h/${r.id}`}>{r.title}</a></p>
                 </div>
-              </li>
-            ))}
-          </ul>
-        )}
+              </div>
+            ))
+          )}
+        </div>
       </section>
 
-      <aside>
-        <h2 class="kicker mb-3 flex items-center gap-2">
-          <span>// temas</span>
-          <span class="flex-1 divider-ascii">───────────</span>
-        </h2>
-        <ul class="space-y-3">
-          {topics.map((t) => (
-            <li>
-              <a href={`/tema/${t.slug}`} class="font-semibold">
-                <span style="color: var(--color-accent)">$</span> {t.name.toLowerCase()}
-                <span class="text-xs ml-1" style="color: var(--color-muted)">({t.threadCount})</span>
-              </a>
-              {t.description && <p class="text-xs mt-0.5" style="color: var(--color-muted)">{t.description}</p>}
-            </li>
-          ))}
-        </ul>
-        <p class="mt-6 text-sm">
-          <a href="/paises" style="color: var(--color-accent)">→ ver por país</a>
-        </p>
-      </aside>
-    </div>
+      <section class="rail-section">
+        <div class="rail-section__h">
+          <h3>Activos esta semana</h3>
+        </div>
+        <div>
+          {activeContribs.length === 0 ? (
+            <p class="meta" style="padding: 14px 0;">Sin actividad reciente.</p>
+          ) : (
+            activeContribs.map((c) => (
+              <div class="contrib">
+                <Byline username={c.username} declaredView={c.declaredView} avatarUrl={c.avatarUrl} />
+                <div class="contrib__stat">{c.postCount} resp.</div>
+              </div>
+            ))
+          )}
+        </div>
+      </section>
+
+      <section class="rail-section">
+        <div class="event" style="background: var(--surface-2); border: 1px solid var(--rule); padding: 18px;">
+          <div style="font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); margin-bottom: 8px;">
+            Cómo participar
+          </div>
+          <h4 style="font-family: var(--font-serif); font-size: 18px; line-height: 1.2; margin: 0 0 8px;">Abrí un hilo serio o respondé a uno existente</h4>
+          <p class="meta" style="margin-bottom: 12px;">Lectura libre. Para participar, registrate y leé el código de conducta.</p>
+          <a href="/h/nuevo" class="btn">Abrir un hilo</a>
+        </div>
+      </section>
+    </aside>
   </div>
 </BaseLayout>

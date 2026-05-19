@@ -27,35 +27,36 @@ const pending = await db.select({
   .where(eq(schema.reports.status, 'pending'))
   .orderBy(desc(schema.reports.createdAt));
 ---
-<BaseLayout title="casos pendientes">
-  <div class="max-w-4xl mx-auto px-6 py-10">
-    <p class="kicker mb-1">// admin · moderación</p>
-    <h1 class="text-3xl mb-2 prompt">casos pendientes</h1>
-    <p class="text-sm mb-6" style="color: var(--color-muted)">
-      modo fundador: vos sos el jurado. cada decisión queda en la <a href="/moderacion" style="color: var(--color-accent)">bitácora pública</a> anonimizada.
+<BaseLayout title="Casos pendientes">
+  <article class="thread page-anim" style="max-width: 900px;">
+    <div class="thread__kicker">
+      <span class="kicker">Admin · Moderación</span>
+    </div>
+    <h1 class="thread__title">Casos pendientes</h1>
+    <p style="font-family: var(--font-serif); font-size: 20px; line-height: 1.5; color: var(--ink-2); margin: 0 0 32px; max-width: 60ch;">
+      Modo fundador: vos sos el jurado. Cada decisión queda en la <a href="/moderacion" style="color: var(--accent);">bitácora pública</a> anonimizada.
     </p>
 
     {pending.length === 0 ? (
-      <p style="color: var(--color-muted)">no hay reportes pendientes.</p>
+      <p class="meta" style="padding: 32px 0;">No hay reportes pendientes.</p>
     ) : (
-      <ul class="space-y-4">
+      <div style="display: flex; flex-direction: column; gap: 20px;">
         {pending.map((r) => (
-          <li class="card p-4">
-            <div class="flex flex-wrap items-center gap-2 mb-2 text-xs" style="color: var(--color-muted)">
-              <span class="tag tag-accent">regla {r.ruleNumber}</span>
-              <span>· {relativeTime(r.createdAt)}</span>
-              <span>· en <a href={`/h/${r.threadId}`} style="color: var(--color-accent)">{r.threadTitle}</a></span>
+          <div class="card">
+            <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 12px;">
+              <span class="kicker">Regla {r.ruleNumber}</span>
+              <span class="meta">{relativeTime(r.createdAt)}</span>
+              <span class="meta">·</span>
+              <span class="meta">en <a href={`/h/${r.threadId}`} style="color: var(--accent);">{r.threadTitle}</a></span>
             </div>
-            <p class="text-sm">
-              <strong>@{r.reporterUsername}</strong> reportó a <strong>@{r.reportedUsername}</strong>
+            <p style="font-family: var(--font-serif); font-size: 17px; margin: 0 0 8px;">
+              <b>@{r.reporterUsername}</b> reportó a <b>@{r.reportedUsername}</b>
             </p>
-            <p class="text-sm mt-2 prose-body">{r.context}</p>
-            <div class="mt-3">
-              <a href={`/moderacion/caso/${r.id}`} class="btn">→ revisar caso</a>
-            </div>
-          </li>
+            <p style="font-family: var(--font-serif); font-size: 16px; color: var(--ink-2); margin: 0 0 16px;">{r.context}</p>
+            <a href={`/moderacion/caso/${r.id}`} class="btn">→ Revisar caso</a>
+          </div>
         ))}
-      </ul>
+      </div>
     )}
-  </div>
+  </article>
 </BaseLayout>

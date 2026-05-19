@@ -7,11 +7,11 @@ interface Props {
   title?: string;
   description?: string;
 }
-const { title = 'polinomia//', description = 'Foro de debate sobre política y economía. Sin votos, sin algoritmo, con fuentes.' } = Astro.props;
-const fullTitle = title === 'polinomia//' ? title : `${title} :: polinomia`;
+const { title = 'polinomia', description = 'Foro de pensamiento económico, abierto a quienes lo practican en serio.' } = Astro.props;
+const fullTitle = title === 'polinomia' ? 'Polinomia · Foro' : `${title} · Polinomia`;
 ---
 <!doctype html>
-<html lang="es">
+<html lang="es" data-palette="papel">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -19,34 +19,38 @@ const fullTitle = title === 'polinomia//' ? title : `${title} :: polinomia`;
     <script is:inline>
       (function () {
         try {
-          var saved = localStorage.getItem('theme');
+          var saved = localStorage.getItem('palette');
           var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-          var theme = saved || (prefersDark ? 'dark' : 'light');
-          document.documentElement.setAttribute('data-theme', theme);
+          var palette = saved || (prefersDark ? 'ink' : 'papel');
+          document.documentElement.setAttribute('data-palette', palette);
         } catch (e) {
-          document.documentElement.setAttribute('data-theme', 'light');
+          document.documentElement.setAttribute('data-palette', 'papel');
         }
       })();
     </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,300..700;1,6..72,300..700&family=DM+Mono:wght@400;500&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap" />
     <title>{fullTitle}</title>
   </head>
-  <body class="flex flex-col min-h-screen">
-    <Header />
-    <main class="flex-1">
-      <slot />
-    </main>
-    <Footer />
+  <body>
+    <div class="app">
+      <div class="page">
+        <Header />
+        <main>
+          <slot />
+        </main>
+        <Footer />
+      </div>
+    </div>
     <script is:inline>
       document.addEventListener('click', function (e) {
-        var btn = e.target.closest && e.target.closest('[data-theme-toggle]');
+        var btn = e.target.closest && e.target.closest('[data-palette-toggle]');
         if (!btn) return;
-        var current = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
-        var next = current === 'dark' ? 'light' : 'dark';
-        document.documentElement.setAttribute('data-theme', next);
-        try { localStorage.setItem('theme', next); } catch (e) {}
+        var cur = document.documentElement.getAttribute('data-palette') || 'papel';
+        var next = cur === 'papel' ? 'ink' : 'papel';
+        document.documentElement.setAttribute('data-palette', next);
+        try { localStorage.setItem('palette', next); } catch (e) {}
       });
     </script>
   </body>

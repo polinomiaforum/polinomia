@@ -14,17 +14,18 @@ const countries = await db.select({
   .groupBy(schema.countries.id)
   .orderBy(schema.countries.sortOrder, schema.countries.name);
 ---
-<BaseLayout title="paises">
-  <div class="max-w-5xl mx-auto px-6 py-10">
-    <p class="kicker mb-1">// índice</p>
-    <h1 class="text-3xl mb-6 prompt">países y regiones</h1>
-    <ul class="grid md:grid-cols-3 gap-x-6 gap-y-3">
+<BaseLayout title="Países">
+  <div style="padding: 36px 0 60px;">
+    <span class="kicker">Índice geográfico</span>
+    <h1 style="font-family: var(--font-serif); font-weight: 400; font-size: 48px; line-height: 1.05; margin: 8px 0 32px; letter-spacing: -0.015em;">Países y regiones</h1>
+
+    <ul style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 18px; list-style: none; padding: 0; margin: 0;">
       {countries.map((c) => (
-        <li>
-          <a href={`/pais/${c.slug}`} class="font-semibold">
-            <span style="color: var(--color-accent)">$</span> {c.name.toLowerCase()}
+        <li style="padding: 12px 0; border-bottom: 1px solid var(--rule);">
+          <a href={`/pais/${c.slug}`} style="display: flex; justify-content: space-between; align-items: baseline; gap: 8px;">
+            <span style="font-family: var(--font-serif); font-size: 18px;">{c.name}</span>
+            <span class="meta-mono" style="color: var(--accent);">{c.threadCount}</span>
           </a>
-          <span class="text-xs ml-1" style="color: var(--color-muted)">({c.threadCount})</span>
         </li>
       ))}
     </ul>

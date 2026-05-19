@@ -1,0 +1,34 @@
+---
+interface Props {
+  username: string;
+  declaredView?: string | null;
+  avatarUrl?: string | null;
+  size?: 'sm' | 'md' | 'lg';
+  hideCred?: boolean;
+}
+const { username, declaredView, avatarUrl, size = 'md', hideCred = false } = Astro.props;
+
+function initials(name: string) {
+  return name
+    .replace(/[^a-zA-Z0-9]/g, '')
+    .slice(0, 2)
+    .toUpperCase();
+}
+
+const avatarClass = size === 'lg' ? 'avatar avatar--lg' : size === 'sm' ? 'avatar avatar--sm' : 'avatar';
+---
+<div class="byline">
+  {avatarUrl ? (
+    <img src={avatarUrl} alt="" class={avatarClass} style="object-fit: cover;" width={size === 'lg' ? 52 : size === 'sm' ? 26 : 36} height={size === 'lg' ? 52 : size === 'sm' ? 26 : 36} />
+  ) : (
+    <span class={avatarClass} aria-hidden="true">{initials(username)}</span>
+  )}
+  <div style="min-width: 0;">
+    <div class="byline__name">
+      <a href={`/u/${username}`}>{username}</a>
+    </div>
+    {!hideCred && declaredView && (
+      <div class="byline__cred"><span class="cred-mark">§</span>{declaredView}</div>
+    )}
+  </div>
+</div>

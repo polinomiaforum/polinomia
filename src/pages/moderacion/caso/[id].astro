@@ -1,7 +1,7 @@
 ---
 import BaseLayout from '~/layouts/BaseLayout.astro';
 import { db, schema } from '~/db';
-import { alias, desc, eq, and, gte } from 'drizzle-orm';
+import { desc, eq, and, gte, alias } from 'drizzle-orm';
 import { DECISIONS, RULES } from '~/lib/moderation';
 import { relativeTime, renderBody } from '~/lib/text';
 
@@ -53,43 +53,47 @@ const priorSanctions = await db.select()
 const error = Astro.url.searchParams.get('error');
 const ruleLabel = RULES.find((r) => r.n === report.ruleNumber)?.label;
 ---
-<BaseLayout title={`caso #${report.id}`}>
-  <div class="max-w-3xl mx-auto px-6 py-10">
-    <p class="kicker mb-1">// admin · caso #{report.id}</p>
-    <div class="flex flex-wrap items-center gap-2 mb-4">
-      <span class="tag tag-accent">regla {report.ruleNumber}</span>
-      <span class="tag">{report.status}</span>
-      <span class="text-xs" style="color: var(--color-muted)">abierto {relativeTime(report.createdAt)}</span>
+<BaseLayout title={`Caso #${report.id}`}>
+  <article class="thread page-anim">
+    <div class="thread__kicker">
+      <span class="kicker">Admin · Caso #{report.id}</span>
+      <span class="reply__tag reply__tag--reformular">{report.status}</span>
+      <span class="meta">abierto {relativeTime(report.createdAt)}</span>
     </div>
+    <h1 class="thread__title">Regla {report.ruleNumber}: {ruleLabel}</h1>
 
-    <h1 class="text-xl mb-4">{ruleLabel}</h1>
-
-    <h2 class="kicker mb-2">// post reportado</h2>
-    <div class="card p-4 mb-4">
-      <div class="text-xs mb-2" style="color: var(--color-muted)">
-        @{report.reportedUsername} en <a href={`/h/${report.threadId}#p${report.postId}`} style="color: var(--color-accent)">{report.threadTitle}</a>
+    <header class="replies-h" style="margin-top: 24px;">
+      <h3>Post reportado</h3>
+    </header>
+    <div class="card">
+      <div class="meta" style="margin-bottom: 12px;">
+        @{report.reportedUsername} en <a href={`/h/${report.threadId}#p${report.postId}`} style="color: var(--accent);">{report.threadTitle}</a>
         · {relativeTime(report.postCreatedAt)}
-        {report.postHiddenAt && <span class="ml-2" style="color: var(--color-accent)">(ya oculto)</span>}
+        {report.postHiddenAt && <span style="margin-left: 8px; color: var(--accent);">(ya oculto)</span>}
       </div>
-      <div class="prose-body text-sm" set:html={renderBody(report.postBody)} />
+      <div class="body-text" style="font-size: 16px;" set:html={renderBody(report.postBody)} />
     </div>
 
-    <h2 class="kicker mb-2">// contexto del reporte</h2>
-    <div class="card p-4 mb-4">
-      <p class="text-xs mb-1" style="color: var(--color-muted)">por @{report.reporterUsername}</p>
-      <p class="prose-body text-sm">{report.context}</p>
+    <header class="replies-h" style="margin-top: 24px;">
+      <h3>Contexto del reporte</h3>
+    </header>
+    <div class="card">
+      <p class="meta" style="margin: 0 0 8px;">por @{report.reporterUsername}</p>
+      <p style="font-family: var(--font-serif); font-size: 17px; margin: 0;">{report.context}</p>
     </div>
 
-    <h2 class="kicker mb-2">// expediente del reportado (últimos 90 días)</h2>
+    <header class="replies-h" style="margin-top: 24px;">
+      <h3>Expediente (últimos 90 días)</h3>
+    </header>
     {priorSanctions.length === 0 ? (
-      <p class="text-xs mb-6" style="color: var(--color-muted)">sin sanciones previas. primer caso.</p>
+      <p class="meta" style="padding: 12px 0;">Sin sanciones previas. Primer caso.</p>
     ) : (
-      <ul class="text-xs space-y-1 mb-6">
+      <ul style="list-style: none; padding: 0; margin: 0;">
         {priorSanctions.map((s) => (
-          <li>
-            <span class="tag tag-accent">{s.type}</span>
-            {s.ruleNumber && <span class="tag">regla {s.ruleNumber}</span>}
-            <span style="color: var(--color-muted)"> · {relativeTime(s.appliedAt)} · {s.reason}</span>
+          <li style="padding: 10px 0; border-bottom: 1px solid var(--rule);">
+            <span class="reply__tag reply__tag--reformular">{s.type}</span>
+            {s.ruleNumber && <span class="reply__tag" style="margin-left: 8px;">regla {s.ruleNumber}</span>}
+            <span class="meta" style="margin-left: 12px;">{relativeTime(s.appliedAt)} · {s.reason}</span>
           </li>
         ))}
       </ul>
@@ -97,43 +101,45 @@ const ruleLabel = RULES.find((r) => r.n === report.ruleNumber)?.label;
 
     {report.status === 'pending' ? (
       <>
-        <h2 class="kicker mb-2">// veredicto</h2>
-        {error && <div class="alert alert-error mb-4">faltan campos: elegí una decisión y escribí una línea de justificación.</div>}
-        <form method="post" action="/api/moderacion/decide" class="space-y-4">
+        <header class="replies-h" style="margin-top: 36px;">
+          <h3>Veredicto</h3>
+        </header>
+        {error && <div class="alert alert-error">Faltan campos: elegí una decisión y escribí una línea de justificación.</div>}
+        <form method="post" action="/api/moderacion/decide" style="display: flex; flex-direction: column; gap: 20px;">
           <input type="hidden" name="reportId" value={report.id} />
           <input type="hidden" name="ruleNumber" value={report.ruleNumber} />
 
-          <fieldset>
-            <legend class="kicker mb-2">// decisión</legend>
-            <div class="space-y-2">
+          <fieldset style="border: 0; padding: 0; margin: 0;">
+            <legend class="kicker kicker--muted" style="margin-bottom: 12px;">Decisión</legend>
+            <div style="display: flex; flex-direction: column; gap: 10px;">
               {DECISIONS.map((d) => (
-                <label class="flex items-start gap-3 cursor-pointer">
-                  <input type="radio" name="decision" value={d.id} required style="width:auto; box-shadow:none" />
+                <label style="display: flex; align-items: flex-start; gap: 12px; font-family: var(--font-serif); font-size: 17px; cursor: pointer;">
+                  <input type="radio" name="decision" value={d.id} required style="width: auto; margin-top: 6px;" />
                   <span>
-                    <strong>{d.label}</strong>
-                    <span class="text-xs ml-2" style="color: var(--color-muted)">— {d.desc}</span>
+                    <b>{d.label}</b>
+                    <span class="meta" style="margin-left: 8px;">— {d.desc}</span>
                   </span>
                 </label>
               ))}
             </div>
           </fieldset>
 
-          <label class="block">
-            <span class="kicker block mb-1">justificación (una línea, va a la bitácora pública)</span>
+          <label>
+            <span class="kicker kicker--muted" style="display: block; margin-bottom: 6px;">Justificación (una línea, va a la bitácora pública)</span>
             <input type="text" name="rationale" required minlength="10" maxlength="400"
               placeholder="ej: el post llama 'imbécil' al usuario, sin discutir su argumento." />
           </label>
 
-          <div class="flex justify-end">
-            <button type="submit" class="btn">aplicar veredicto</button>
+          <div style="display: flex; justify-content: flex-end; padding-top: 12px; border-top: 1px solid var(--rule);">
+            <button type="submit" class="btn">Aplicar veredicto</button>
           </div>
         </form>
       </>
     ) : (
-      <div class="alert mb-4">
-        este caso ya fue resuelto. veredicto: <strong>{report.status}</strong>.
-        <a href="/moderacion" class="ml-2" style="color: var(--color-accent)">→ ver bitácora</a>
+      <div class="alert" style="margin-top: 24px;">
+        Este caso ya fue resuelto. Veredicto: <b>{report.status}</b>.
+        <a href="/moderacion" style="color: var(--accent); margin-left: 8px;">→ Ver bitácora</a>
       </div>
     )}
-  </div>
+  </article>
 </BaseLayout>

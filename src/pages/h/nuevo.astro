@@ -13,25 +13,29 @@ const error = Astro.url.searchParams.get('error');
 const presetTopic = Astro.url.searchParams.get('tema');
 const presetCountry = Astro.url.searchParams.get('pais');
 ---
-<BaseLayout title="abrir un hilo">
-  <div class="max-w-2xl mx-auto px-6 py-10">
-    <p class="kicker mb-1">// nuevo hilo</p>
-    <h1 class="text-3xl mb-2 prompt">abrir un hilo</h1>
-    <p class="text-sm mb-6" style="color: var(--color-muted)">
-      planteá una tesis o pregunta concreta. cuanto más afilada, mejor el debate. si tenés fuentes que respalden tu posición, agregalas abajo.
+<BaseLayout title="Abrir un hilo">
+  <article class="thread page-anim">
+    <div class="thread__kicker">
+      <span class="kicker">Nuevo hilo</span>
+    </div>
+    <h1 class="thread__title">Abrir un hilo</h1>
+    <p style="font-family: var(--font-serif); font-size: 20px; line-height: 1.5; color: var(--ink-2); margin: 0 0 32px; max-width: 60ch;">
+      Planteá una tesis o pregunta concreta. Cuanto más afilada, mejor el debate. Si tenés fuentes que respalden tu posición, agregalas abajo.
     </p>
-    {error && <div class="alert alert-error mb-4">faltan campos requeridos.</div>}
-    <form method="post" action="/api/threads" class="space-y-5">
-      <div class="grid grid-cols-2 gap-4">
-        <label class="block">
-          <span class="kicker block mb-1">tema</span>
+
+    {error && <div class="alert alert-error">Faltan campos requeridos.</div>}
+
+    <form method="post" action="/api/threads" style="display: flex; flex-direction: column; gap: 20px;">
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+        <label>
+          <span class="kicker kicker--muted" style="display: block; margin-bottom: 6px;">Tema</span>
           <select name="topicSlug" required>
             <option value="">— elegí un tema —</option>
             {topics.map((t) => <option value={t.slug} selected={t.slug === presetTopic}>{t.name}</option>)}
           </select>
         </label>
-        <label class="block">
-          <span class="kicker block mb-1">país / región</span>
+        <label>
+          <span class="kicker kicker--muted" style="display: block; margin-bottom: 6px;">País / región</span>
           <select name="countrySlug" required>
             <option value="">— elegí un país —</option>
             {countries.map((c) => <option value={c.slug} selected={c.slug === presetCountry}>{c.name}</option>)}
@@ -39,33 +43,31 @@ const presetCountry = Astro.url.searchParams.get('pais');
         </label>
       </div>
 
-      <label class="block">
-        <span class="kicker block mb-1">tesis o pregunta</span>
-        <input type="text" name="title" required maxlength="200" placeholder="ej: ¿el control de cambios reduce la inflación?" />
+      <label>
+        <span class="kicker kicker--muted" style="display: block; margin-bottom: 6px;">Tesis o pregunta</span>
+        <input type="text" name="title" required maxlength="200" placeholder="Ej: ¿El control de cambios reduce la inflación?" />
       </label>
 
-      <label class="block">
-        <span class="kicker block mb-1">tu apertura</span>
-        <textarea name="body" required rows="10" minlength="40" placeholder="desarrollá tu posición. definí términos, contextualizá, planteá supuestos."></textarea>
+      <label>
+        <span class="kicker kicker--muted" style="display: block; margin-bottom: 6px;">Apertura</span>
+        <textarea name="body" required rows="10" minlength="40" placeholder="Desarrollá tu posición. Definí términos, contextualizá, planteá supuestos." style="min-height: 200px;"></textarea>
       </label>
 
-      <fieldset class="border rule p-4">
-        <legend class="kicker px-2">// fuentes (hasta 5)</legend>
-        <p class="text-xs mb-3" style="color: var(--color-muted)">
-          papers, libros, datos. cita primero, link si existe.
-        </p>
+      <details class="card">
+        <summary style="cursor: pointer; font-family: var(--font-serif); font-style: italic; font-size: 18px;">Fuentes (opcional, hasta 5)</summary>
+        <p class="meta" style="margin: 8px 0 16px;">Papers, libros, datos. Cita primero, link si existe.</p>
         {[0, 1, 2, 3, 4].map((i) => (
-          <div class="grid grid-cols-3 gap-2 mb-2">
-            <input type="text" name={`source_citation_${i}`} placeholder="cita (autor, año, título...)" class="col-span-2" maxlength="300" />
-            <input type="url" name={`source_url_${i}`} placeholder="url (opcional)" />
+          <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 8px; margin-bottom: 8px;">
+            <input type="text" name={`source_citation_${i}`} placeholder="Cita (autor, año, título...)" maxlength="300" />
+            <input type="url" name={`source_url_${i}`} placeholder="URL (opcional)" />
           </div>
         ))}
-      </fieldset>
+      </details>
 
-      <div class="flex justify-between items-center">
-        <a href="/" class="text-sm" style="color: var(--color-muted)">← cancelar</a>
-        <button type="submit" class="btn">publicar hilo</button>
+      <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 12px; border-top: 1px solid var(--rule);">
+        <a href="/" class="meta" style="color: var(--ink-2);">← Cancelar</a>
+        <button type="submit" class="btn">Publicar hilo</button>
       </div>
     </form>
-  </div>
+  </article>
 </BaseLayout>

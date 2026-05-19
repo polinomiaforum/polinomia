@@ -19,62 +19,66 @@ const latestSanctions = await db.select()
   .orderBy(desc(schema.sanctions.appliedAt))
   .limit(10);
 ---
-<BaseLayout title="cuenta sancionada">
-  <div class="max-w-2xl mx-auto px-6 py-10">
-    <p class="kicker mb-1">// estado de cuenta</p>
-    <h1 class="text-3xl mb-4 prompt">tu cuenta tiene restricciones</h1>
+<BaseLayout title="Cuenta sancionada">
+  <article class="thread page-anim">
+    <div class="thread__kicker">
+      <span class="kicker">Estado de cuenta</span>
+    </div>
+    <h1 class="thread__title">Tu cuenta tiene restricciones</h1>
 
     {expelled && (
-      <div class="alert alert-error mb-4">
-        tu cuenta fue expulsada. no podés volver a participar. si creés que es un error,
-        escribí a <a href="mailto:moderacion@polinomia.org" style="color: var(--color-accent)">moderacion@polinomia.org</a>.
+      <div class="alert alert-error">
+        Tu cuenta fue expulsada. No podés volver a participar. Si creés que es un error,
+        escribí a <a href="mailto:moderacion@polinomia.org" style="color: var(--accent);">moderacion@polinomia.org</a>.
       </div>
     )}
 
     {!expelled && suspendedUntil && suspendedUntil.getTime() > Date.now() && (
-      <div class="alert alert-error mb-4">
-        cuenta suspendida hasta {suspendedUntil.toLocaleString('es')}.
-        durante la suspensión no podés abrir hilos ni responder.
+      <div class="alert alert-error">
+        Cuenta suspendida hasta <b>{suspendedUntil.toLocaleString('es')}</b>. Durante la suspensión no podés abrir hilos ni responder.
       </div>
     )}
 
     {awaiting.length > 0 && (
-      <div class="alert mb-4">
-        <p class="font-semibold mb-2">tenés posts pendientes de reformular:</p>
-        <ul class="list-disc ml-5 space-y-1">
+      <div class="alert">
+        <b>Tenés posts pendientes de reformular:</b>
+        <ul style="margin: 8px 0 0 18px; padding: 0;">
           {awaiting.map((p) => (
             <li>
-              <a href={`/h/editar/${p.id}`} style="color: var(--color-accent)">→ editar post #{p.id}</a>
-              {p.dueAt && <span class="text-xs ml-2" style="color: var(--color-muted)">(vence {p.dueAt.toLocaleString('es')})</span>}
+              <a href={`/h/editar/${p.id}`} style="color: var(--accent);">→ Editar post #{p.id}</a>
+              {p.dueAt && <span class="meta" style="margin-left: 8px;">(vence {p.dueAt.toLocaleString('es')})</span>}
             </li>
           ))}
         </ul>
-        <p class="text-sm mt-2" style="color: var(--color-muted)">
-          mientras no los reformules, no podés escribir nuevos posts.
+        <p class="meta" style="margin-top: 12px;">
+          Mientras no los reformules, no podés escribir nuevos posts.
         </p>
       </div>
     )}
 
-    <h2 class="kicker mt-8 mb-3">// historial reciente</h2>
+    <header class="replies-h" style="margin-top: 48px;">
+      <h3>Historial reciente</h3>
+    </header>
+
     {latestSanctions.length === 0 ? (
-      <p class="text-sm" style="color: var(--color-muted)">no hay sanciones recientes.</p>
+      <p class="meta" style="padding: 32px 0;">No hay sanciones recientes.</p>
     ) : (
-      <ul class="text-sm space-y-2">
+      <ul style="list-style: none; padding: 0; margin: 0;">
         {latestSanctions.map((s) => (
-          <li class="border rule p-2">
-            <div class="flex flex-wrap items-center gap-2">
-              <span class="tag tag-accent">{s.type}</span>
-              {s.ruleNumber && <span class="tag">regla {s.ruleNumber}</span>}
-              <span class="text-xs" style="color: var(--color-muted)">{s.appliedAt.toLocaleString('es')}</span>
+          <li style="padding: 14px 0; border-bottom: 1px solid var(--rule);">
+            <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+              <span class="reply__tag reply__tag--reformular">{s.type}</span>
+              {s.ruleNumber && <span class="reply__tag">Regla {s.ruleNumber}</span>}
+              <span class="meta">{s.appliedAt.toLocaleString('es')}</span>
             </div>
-            <p class="mt-1 text-xs">{s.reason}</p>
+            <p style="margin: 8px 0 0; font-family: var(--font-serif); font-size: 15px;">{s.reason}</p>
           </li>
         ))}
       </ul>
     )}
 
-    <p class="mt-8 text-sm">
-      <a href="/reglas" style="color: var(--color-accent)">→ ver código de conducta</a>
+    <p class="meta" style="margin-top: 32px;">
+      <a href="/reglas" style="color: var(--accent);">→ Ver código de conducta</a>
     </p>
-  </div>
+  </article>
 </BaseLayout>

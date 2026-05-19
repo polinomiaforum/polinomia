@@ -1,5 +1,6 @@
 ---
 import BaseLayout from '~/layouts/BaseLayout.astro';
+import Byline from '~/components/Byline.astro';
 import { db, schema } from '~/db';
 import { asc, eq } from 'drizzle-orm';
 import { relativeTime, renderBody } from '~/lib/text';
@@ -38,6 +39,7 @@ const posts = await db.select({
   authorId: schema.users.id,
   authorUsername: schema.users.username,
   authorDeclaredView: schema.users.declaredView,
+  authorAvatarUrl: schema.users.avatarUrl,
 })
   .from(schema.posts)
   .innerJoin(schema.users, eq(schema.users.id, schema.posts.authorId))
@@ -55,6 +57,12 @@ for (const s of allSources) {
   sourcesByPost.get(s.postId)!.push(s);
 }
 
+const opening = posts.find((p) => p.isOpening === 1);
+const replies = posts.filter((p) => p.isOpening !== 1);
+
+const uniqueAuthors = new Set(posts.filter((p) => !p.hiddenAt).map((p) => p.authorId));
+const contribCount = uniqueAuthors.size;
+
 const user = Astro.locals.user;
 const isAdmin = !!Astro.locals.isAdmin;
 const canReport = !!Astro.locals.canReport;
@@ -62,152 +70,238 @@ const isSuspended = !!Astro.locals.suspended;
 const hasPendingReformulation = (Astro.locals.awaitingReformulation?.length ?? 0) > 0;
 const error = Astro.url.searchParams.get('error');
 const reportedFlag = Astro.url.searchParams.get('reportado') === '1';
+const filter = Astro.url.searchParams.get('respuestas') ?? 'todas';
+
+const filteredReplies = filter === 'fuentes'
+  ? replies.filter((r) => (sourcesByPost.get(r.id) ?? []).length > 0)
+  : replies;
 ---
 <BaseLayout title={thread.title}>
-  <div class="max-w-5xl mx-auto px-6 py-8">
-    <nav class="text-xs mb-2 flex flex-wrap gap-2" style="color: var(--color-muted)">
-      <a href={`/tema/${thread.topicSlug}`} class="tag">{thread.topicName.toLowerCase()}</a>
-      <a href={`/pais/${thread.countrySlug}`} class="tag">{thread.countryName.toLowerCase()}</a>
-    </nav>
-    <h1 class="thread-title text-2xl md:text-3xl mb-6">
-      <span style="color: var(--color-accent)">&gt;</span> {thread.title}
-    </h1>
+  <article class="thread page-anim">
+    <p class="meta" style="margin-bottom: 16px;">
+      <a href="/" style="color: var(--ink-2);">← Volver al foro</a>
+    </p>
 
-    {reportedFlag && <div class="alert alert-ok mb-4">reporte enviado. lo revisa la moderación.</div>}
-    {error === 'self_report' && <div class="alert alert-error mb-4">no podés reportar tu propio post.</div>}
-    {error === 'expired_edit' && <div class="alert alert-error mb-4">la edición libre vence después de 1 hora.</div>}
+    <div class="thread__kicker">
+      <span class="kicker"><a href={`/tema/${thread.topicSlug}`} style="color: inherit;">{thread.topicName}</a></span>
+      <span class="meta">·</span>
+      <a href={`/pais/${thread.countrySlug}`} class="meta">{thread.countryName}</a>
+      <span class="meta">·</span>
+      <span class="meta">{relativeTime(thread.createdAt)}</span>
+    </div>
 
-    <div class="grid md:grid-cols-[1fr_280px] gap-10">
-      <div>
-        {posts.map((p) => {
-          const ps = sourcesByPost.get(p.id) ?? [];
-          const isOwn = user?.id === p.authorId;
-          const hidden = !!p.hiddenAt;
-          const showHiddenPlaceholder = hidden && !isOwn && !isAdmin;
-          const withinEdit1h = (Date.now() - p.createdAt.getTime()) < 3600_000;
-          return (
-            <article id={`p${p.id}`} class:list={['py-6 border-t rule-soft', p.isOpening && 'border-l-2 pl-4']} style={p.isOpening ? 'border-left-color: var(--color-accent)' : ''}>
-              <header class="text-xs mb-3 flex flex-wrap items-center gap-2" style="color: var(--color-muted)">
-                <a href={`/u/${p.authorUsername}`} class="font-semibold" style="color: var(--color-ink)">@{p.authorUsername}</a>
-                {p.authorDeclaredView && <span>· {p.authorDeclaredView}</span>}
-                <span>· {relativeTime(p.createdAt)}</span>
-                {p.editedAt && <span>· editado {relativeTime(p.editedAt)}</span>}
-                {p.isOpening ? <span class="tag tag-accent">apertura</span> : null}
-                {hidden && <span class="tag tag-accent">oculto · {p.hiddenReason}</span>}
-                {p.needsReformulation === 1 && <span class="tag tag-accent">a reformular</span>}
+    <h1 class="thread__title">{thread.title}</h1>
+
+    {opening && (
+      <p style="font-family: var(--font-serif); font-size: 22px; line-height: 1.45; color: var(--ink-2); margin: 0 0 28px; text-wrap: pretty; max-width: 60ch;">
+        {opening.body.split(/\n\n/)[0]?.slice(0, 240)}{opening.body.split(/\n\n/)[0]?.length! > 240 && '…'}
+      </p>
+    )}
+
+    {reportedFlag && <div class="alert alert-ok">Reporte enviado. Lo revisa la moderación.</div>}
+    {error === 'self_report' && <div class="alert alert-error">No podés reportar tu propio post.</div>}
+    {error === 'expired_edit' && <div class="alert alert-error">La edición libre vence después de 1 hora.</div>}
+
+    {opening && (
+      <div class="thread__byline">
+        <Byline
+          username={opening.authorUsername}
+          declaredView={opening.authorDeclaredView}
+          avatarUrl={opening.authorAvatarUrl}
+          size="lg"
+        />
+        <div style="margin-left: auto; display: flex; gap: 24px;">
+          <div>
+            <div class="lead__stat-l">Contribuciones</div>
+            <div style="font-family: var(--font-serif); font-size: 24px; margin-top: 4px;">{contribCount}</div>
+          </div>
+          <div>
+            <div class="lead__stat-l">Respuestas</div>
+            <div style="font-family: var(--font-serif); font-size: 24px; margin-top: 4px;">{replies.length}</div>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {opening && (() => {
+      const isOwnOpening = user?.id === opening.authorId;
+      const hiddenOp = !!opening.hiddenAt;
+      const showOpHiddenPlaceholder = hiddenOp && !isOwnOpening && !isAdmin;
+      const opSources = sourcesByPost.get(opening.id) ?? [];
+      return (
+        <>
+          {isOwnOpening && opening.needsReformulation === 1 && (
+            <div class="alert">
+              La moderación te pidió reformular esta apertura.
+              {opening.reformulateDueAt && <> Tenés hasta <b>{opening.reformulateDueAt.toLocaleString('es')}</b>.</>}
+              <a href={`/h/editar/${opening.id}`} style="color: var(--accent); margin-left: 6px;">Editar ahora →</a>
+            </div>
+          )}
+
+          {showOpHiddenPlaceholder ? (
+            <p class="body-text" style="color: var(--ink-3); font-style: italic;">
+              Apertura ocultada por moderación ({opening.hiddenReason}). La decisión está en la <a href="/moderacion" style="color: var(--accent);">bitácora pública</a>.
+            </p>
+          ) : (
+            <div class="body-text">
+              {opening.body.split(/\n\n+/).map((para, i) => (
+                <p class:list={[i === 0 && !hiddenOp && 'dropcap']} set:html={renderBody(para)} />
+              ))}
+            </div>
+          )}
+
+          {opSources.length > 0 && (
+            <div class="data-callout" style="margin-top: 28px;">
+              <div class="data-callout__n">{opSources.length}</div>
+              <div class="data-callout__b">
+                <b>Fuentes citadas en la apertura.</b><br>
+                <ol style="margin: 6px 0 0 18px; padding: 0;">
+                  {opSources.map((s) => (
+                    <li>
+                      {s.url ? (
+                        <a href={s.url} target="_blank" rel="noopener nofollow ugc" style="color: var(--accent); border-bottom: 1px solid var(--accent-soft);">{s.citation}</a>
+                      ) : s.citation}
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            </div>
+          )}
+        </>
+      );
+    })()}
+
+    <section>
+      <header class="replies-h">
+        <h3>Respuestas</h3>
+        <div style="display: flex; gap: 22px; font-family: var(--font-sans); font-size: 12px; color: var(--ink-2);">
+          <a href={`/h/${thread.id}`} class:list={[filter === 'todas' && 'is-active']} style={filter === 'todas' ? 'color: var(--ink); text-decoration: underline; text-underline-offset: 4px;' : 'color: inherit;'}>Todas ({replies.length})</a>
+          <a href={`/h/${thread.id}?respuestas=fuentes`} class:list={[filter === 'fuentes' && 'is-active']} style={filter === 'fuentes' ? 'color: var(--ink); text-decoration: underline; text-underline-offset: 4px;' : 'color: inherit;'}>Con fuentes</a>
+        </div>
+      </header>
+
+      {filteredReplies.length === 0 && (
+        <p class="meta" style="padding: 40px 0; text-align: center;">No hay respuestas que coincidan con este filtro.</p>
+      )}
+
+      {filteredReplies.map((p) => {
+        const ps = sourcesByPost.get(p.id) ?? [];
+        const isOwn = user?.id === p.authorId;
+        const hidden = !!p.hiddenAt;
+        const showHidden = hidden && !isOwn && !isAdmin;
+        const withinEdit1h = (Date.now() - p.createdAt.getTime()) < 3600_000;
+        return (
+          <article id={`p${p.id}`} class:list={['reply', hidden && 'reply--hidden', p.needsReformulation === 1 && 'reply--reformulate']}>
+            <div class="reply__author">
+              <Byline username={p.authorUsername} declaredView={null} avatarUrl={p.authorAvatarUrl} size="lg" hideCred={true} />
+              <div class="meta">{relativeTime(p.createdAt)}</div>
+            </div>
+            <div class="reply__main">
+              <header class="reply__head">
+                <div class="reply__attribution">
+                  <div class="reply__name"><a href={`/u/${p.authorUsername}`}>{p.authorUsername}</a></div>
+                  {p.authorDeclaredView && (
+                    <div class="reply__cred"><span class="cred-mark">§</span>{p.authorDeclaredView}</div>
+                  )}
+                </div>
+                <div style="display: flex; gap: 8px;">
+                  {p.needsReformulation === 1 && <span class="reply__tag reply__tag--reformular">a reformular</span>}
+                  {hidden && <span class="reply__tag reply__tag--oculto">oculto · {p.hiddenReason}</span>}
+                  {ps.length > 0 && <span class="reply__tag reply__tag--apertura">{ps.length} fuente{ps.length !== 1 ? 's' : ''}</span>}
+                </div>
               </header>
 
-              {showHiddenPlaceholder ? (
-                <p class="text-sm italic" style="color: var(--color-muted)">
-                  post ocultado por moderación ({p.hiddenReason}). la decisión está en la
-                  <a href="/moderacion" style="color: var(--color-accent)"> bitácora pública</a>.
-                </p>
+              {isOwn && p.needsReformulation === 1 && (
+                <div class="alert" style="margin-bottom: 14px;">
+                  Tenés que reformular este post.
+                  {p.reformulateDueAt && <> Hasta <b>{p.reformulateDueAt.toLocaleString('es')}</b>.</>}
+                  <a href={`/h/editar/${p.id}`} style="color: var(--accent); margin-left: 6px;">Editar →</a>
+                </div>
+              )}
+
+              {showHidden ? (
+                <p class="reply-body">Post ocultado por moderación ({p.hiddenReason}). La decisión está en la <a href="/moderacion">bitácora pública</a>.</p>
               ) : (
-                <>
-                  {isOwn && p.needsReformulation === 1 && (
-                    <div class="alert mb-3">
-                      la moderación te pidió reformular este post.
-                      {p.reformulateDueAt && <> tenés hasta <strong>{p.reformulateDueAt.toLocaleString('es')}</strong>.</>}
-                      <a href={`/h/editar/${p.id}`} style="color: var(--color-accent)" class="ml-2">→ editar ahora</a>
-                    </div>
-                  )}
-                  <div class="prose-body" set:html={renderBody(p.body)} />
+                <div class="reply-body">
+                  {p.body.split(/\n\n+/).map((para) => (
+                    <p set:html={renderBody(para)} />
+                  ))}
                   {ps.length > 0 && (
-                    <div class="mt-4 pl-3 border-l rule text-sm">
-                      <div class="kicker mb-1">// fuentes citadas</div>
-                      <ol class="list-decimal ml-5 space-y-1">
+                    <cite>
+                      Fuentes:
+                      <ol style="margin: 6px 0 0 18px; padding: 0;">
                         {ps.map((s) => (
                           <li>
                             {s.url ? (
-                              <a href={s.url} target="_blank" rel="noopener nofollow ugc" style="color: var(--color-accent)">{s.citation}</a>
+                              <a href={s.url} target="_blank" rel="noopener nofollow ugc">{s.citation}</a>
                             ) : s.citation}
                           </li>
                         ))}
                       </ol>
-                    </div>
+                    </cite>
                   )}
-                </>
+                </div>
               )}
 
-              {user && (
-                <div class="mt-3 flex flex-wrap gap-3 text-xs" style="color: var(--color-muted)">
+              {user && !showHidden && (
+                <footer class="reply__foot">
+                  {p.editedAt && <span class="meta">Editado {relativeTime(p.editedAt)}</span>}
+                  <span style="margin-left: auto;"></span>
                   {isOwn && withinEdit1h && p.needsReformulation === 0 && (
-                    <a href={`/h/editar/${p.id}`} style="color: var(--color-muted)">[editar]</a>
+                    <a href={`/h/editar/${p.id}`} class="reply__action">Editar</a>
                   )}
                   {!isOwn && canReport && (
-                    <a href={`/h/reportar/${p.id}`} style="color: var(--color-muted)">[reportar]</a>
+                    <a href={`/h/reportar/${p.id}`} class="reply__action">Reportar</a>
                   )}
-                </div>
+                </footer>
               )}
-            </article>
-          );
-        })}
+            </div>
+          </article>
+        );
+      })}
 
-        <section class="mt-8">
-          <h2 class="kicker mb-3">// responder</h2>
-          {!user ? (
-            <p class="text-sm" style="color: var(--color-muted)">
-              <a href={`/login?next=/h/${thread.id}`} style="color: var(--color-accent)">entrá</a> o
-              <a href="/registro" style="color: var(--color-accent)"> registrate</a> para participar.
-            </p>
-          ) : isSuspended ? (
-            <div class="alert alert-error">
-              no podés responder: tu cuenta está suspendida.
-              <a href="/cuenta/sancionada" style="color: var(--color-accent)" class="ml-2">→ ver estado</a>
-            </div>
-          ) : hasPendingReformulation ? (
-            <div class="alert">
-              tenés posts pendientes de reformular. no podés escribir nuevos hasta editarlos.
-              <a href="/cuenta/sancionada" style="color: var(--color-accent)" class="ml-2">→ ver</a>
-            </div>
-          ) : (
-            <>
-              {error === 'short' && <div class="alert alert-error mb-3">tu respuesta debe tener al menos 30 caracteres.</div>}
-              <form method="post" action="/api/posts" class="space-y-4">
+      <div style="margin-top: 32px;">
+        <h3 style="font-family: var(--font-serif); font-style: italic; font-weight: 400; font-size: 22px; margin: 0 0 12px;">Aportar al hilo</h3>
+        {!user ? (
+          <p class="meta">
+            <a href={`/login?next=/h/${thread.id}`} style="color: var(--accent);">Iniciá sesión</a> o
+            <a href="/registro" style="color: var(--accent);"> registrate</a> para participar.
+          </p>
+        ) : isSuspended ? (
+          <div class="alert alert-error">
+            Tu cuenta está suspendida. <a href="/cuenta/sancionada" style="color: var(--accent);">Ver estado →</a>
+          </div>
+        ) : hasPendingReformulation ? (
+          <div class="alert">
+            Tenés posts pendientes de reformular. <a href="/cuenta/sancionada" style="color: var(--accent);">Ver →</a>
+          </div>
+        ) : (
+          <>
+            {error === 'short' && <div class="alert alert-error">Tu respuesta debe tener al menos 30 caracteres.</div>}
+            <div class="composer">
+              <form method="post" action="/api/posts">
                 <input type="hidden" name="threadId" value={thread.id} />
-                <textarea name="body" required rows="6" minlength="30" placeholder="argumentá. definí. citá."></textarea>
-                <fieldset class="border rule p-3">
-                  <legend class="kicker px-2">// fuentes (hasta 5)</legend>
-                  {[0, 1, 2, 3, 4].map((i) => (
-                    <div class="grid grid-cols-3 gap-2 mb-2">
-                      <input type="text" name={`source_citation_${i}`} placeholder="cita" class="col-span-2" maxlength="300" />
-                      <input type="url" name={`source_url_${i}`} placeholder="url (opcional)" />
-                    </div>
-                  ))}
-                </fieldset>
-                <div class="flex justify-end">
-                  <button type="submit" class="btn">publicar respuesta</button>
+                <textarea name="body" required rows="6" minlength="30" placeholder="Aportá al hilo. Cita fuentes cuando corresponda; el foro lee con atención." class="composer__area"></textarea>
+                <details style="margin-top: 12px;">
+                  <summary style="cursor: pointer; font-family: var(--font-sans); font-size: 12px; color: var(--ink-2); letter-spacing: 0.04em;">+ Agregar fuentes (hasta 5)</summary>
+                  <div style="margin-top: 12px;">
+                    {[0, 1, 2, 3, 4].map((i) => (
+                      <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 8px; margin-bottom: 8px;">
+                        <input type="text" name={`source_citation_${i}`} placeholder="Cita (autor, año, título)" maxlength="300" />
+                        <input type="url" name={`source_url_${i}`} placeholder="URL (opcional)" />
+                      </div>
+                    ))}
+                  </div>
+                </details>
+                <div class="composer__foot">
+                  <span class="meta">Argumentá. Definí. Citá.</span>
+                  <button type="submit" class="btn">Publicar respuesta</button>
                 </div>
               </form>
-            </>
-          )}
-        </section>
-      </div>
-
-      <aside class="md:border-l rule md:pl-6">
-        <h2 class="kicker mb-3">// biblioteca del hilo</h2>
-        {allSources.length === 0 ? (
-          <p class="text-xs" style="color: var(--color-muted)">todavía no se citó ninguna fuente.</p>
-        ) : (
-          <ol class="text-xs space-y-3 list-decimal ml-5">
-            {allSources.map((s) => (
-              <li>
-                {s.url ? (
-                  <a href={s.url} target="_blank" rel="noopener nofollow ugc" style="color: var(--color-accent)">{s.citation}</a>
-                ) : s.citation}
-                <div class="mt-0.5">
-                  <a href={`#p${s.postId}`} style="color: var(--color-muted)">→ contexto</a>
-                </div>
-              </li>
-            ))}
-          </ol>
+            </div>
+          </>
         )}
-
-        <h2 class="kicker mt-8 mb-3">// moderación</h2>
-        <p class="text-xs" style="color: var(--color-muted)">
-          este foro se modera con jurado humano. <a href="/moderacion" style="color: var(--color-accent)">ver bitácora</a>.
-        </p>
-      </aside>
-    </div>
-  </div>
+      </div>
+    </section>
+  </article>
 </BaseLayout>
