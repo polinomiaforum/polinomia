@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import { finishPasskeyLogin } from '~/lib/passkeys';
 import { createSession, setSessionCookie } from '~/lib/auth';
+import { publicOrigin } from '~/lib/origin';
 
 export const POST: APIRoute = async (ctx) => {
   let body: { response: any };
@@ -12,7 +13,7 @@ export const POST: APIRoute = async (ctx) => {
 
   try {
     const { userId } = await finishPasskeyLogin({
-      origin: ctx.url.origin,
+      origin: publicOrigin(ctx),
       response: body.response,
     });
     const session = await createSession(userId);

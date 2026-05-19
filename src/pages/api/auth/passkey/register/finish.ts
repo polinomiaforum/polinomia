@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
 import { finishPasskeyRegistration } from '~/lib/passkeys';
+import { publicOrigin } from '~/lib/origin';
 
 export const POST: APIRoute = async (ctx) => {
   const user = ctx.locals.user;
@@ -14,7 +15,7 @@ export const POST: APIRoute = async (ctx) => {
 
   try {
     const result = await finishPasskeyRegistration({
-      origin: ctx.url.origin,
+      origin: publicOrigin(ctx),
       userId: user.id,
       response: body.response,
       deviceName: body.deviceName ?? null,

@@ -1,9 +1,10 @@
 import type { APIRoute } from 'astro';
 import { startPasskeyLogin } from '~/lib/passkeys';
+import { publicOrigin } from '~/lib/origin';
 
 export const POST: APIRoute = async (ctx) => {
   try {
-    const options = await startPasskeyLogin({ origin: ctx.url.origin });
+    const options = await startPasskeyLogin({ origin: publicOrigin(ctx) });
     return new Response(JSON.stringify(options), {
       status: 200,
       headers: { 'content-type': 'application/json' },

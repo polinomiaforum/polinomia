@@ -2,6 +2,7 @@ import type { APIRoute } from 'astro';
 import { findUserByEmail } from '~/lib/auth';
 import { createMagicToken, magicLinkUrl } from '~/lib/magic';
 import { magicLinkEmail, sendMail } from '~/lib/email';
+import { publicOrigin } from '~/lib/origin';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -22,7 +23,7 @@ export const POST: APIRoute = async (ctx) => {
     purpose,
   });
 
-  const link = magicLinkUrl(ctx.url.origin, token);
+  const link = magicLinkUrl(publicOrigin(ctx), token);
   const mail = magicLinkEmail(link, purpose);
   await sendMail({ to: email, ...mail });
 
