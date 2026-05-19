@@ -62,11 +62,11 @@ Si no fuiste vos, ignorá este mensaje.
   <h1 style="font-size: 22px; margin: 8px 0 16px;">Tu link para ${action}</h1>
   <p style="font-size: 14px; line-height: 1.55;">Hacé click en el botón para ${action}. El link vence en 15 minutos.</p>
   <p style="margin: 28px 0;">
-    <a href="${link}" style="display: inline-block; background: #0a0a0a; color: #fff; padding: 12px 20px; text-decoration: none; border: 1px solid #0a0a0a; box-shadow: 3px 3px 0 #b45309; font-weight: 600;">→ ${action}</a>
+    <a href="${link}" style="display: inline-block; background: #0a0a0a; color: #fff; padding: 12px 20px; text-decoration: none; border: 1px solid #0a0a0a; box-shadow: 3px 3px 0 #1d4ed8; font-weight: 600;">→ ${action}</a>
   </p>
   <p style="font-size: 12px; color: #6b6b6b;">o copialo a mano:<br><span style="word-break: break-all;">${link}</span></p>
   <p style="font-size: 12px; color: #6b6b6b; margin-top: 32px;">Si no fuiste vos, ignorá este mensaje. Nadie pudo entrar a tu cuenta.</p>
-  <p style="font-size: 12px; color: #b45309; margin-top: 32px;">// polinomics</p>
+  <p style="font-size: 12px; color: #1d4ed8; margin-top: 32px;">// polinomics</p>
 </body></html>`;
 
   return { subject, text, html };
