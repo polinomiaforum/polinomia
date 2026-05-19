@@ -8,16 +8,16 @@
 
 :root,
 html[data-palette="papel"] {
-  --bg: #ede5d6;
-  --surface: #f5efe2;
-  --surface-2: #f9f4e8;
-  --ink: #1a1611;
-  --ink-2: #5a5246;
-  --ink-3: #8a7f6e;
-  --rule: #d6cab2;
-  --rule-soft: #e2d8c4;
+  --bg: #ffffff;
+  --surface: #fafafa;
+  --surface-2: #f4f4f4;
+  --ink: #1a1a1a;
+  --ink-2: #555555;
+  --ink-3: #888888;
+  --rule: #d4d4d4;
+  --rule-soft: #e6e6e6;
   --accent: #7a2a2a;
-  --accent-soft: #b88a8a;
+  --accent-soft: #c9a8a8;
   --pos: #2c5a3a;
   --neg: #9a3030;
   --gutter: 56px;
