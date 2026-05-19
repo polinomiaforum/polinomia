@@ -14,7 +14,7 @@ import { randomBytes } from 'node:crypto';
 import { db, schema } from '~/db';
 
 const CHALLENGE_TTL_MIN = 5;
-const RP_NAME = 'Polinomics';
+const RP_NAME = 'Polinomia';
 
 function rpIdFromOrigin(origin: string) {
   return new URL(origin).hostname;
