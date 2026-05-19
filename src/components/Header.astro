@@ -32,7 +32,7 @@ const navItems: { href: string; label: string; active: boolean }[] = [
     </span>
   </div>
   <h1 class="masthead__wordmark">Polinomia</h1>
-  <p class="masthead__tagline">Un foro de pensamiento económico, abierto a quienes lo practican en serio.</p>
+  <p class="masthead__tagline">Un foro de debate de política y economía, abierto a quienes lo practican en serio.</p>
   <nav class="masthead__nav">
     {navItems.map((it) => (
       <a href={it.href} class:list={[it.active && 'is-active']}>{it.label}</a>
